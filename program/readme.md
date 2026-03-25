@@ -63,3 +63,25 @@ program/
 deactivate
 ```
 
+## Photo examples
+
+### Step-by-Step Guide
+
+![Step 1](step1.png)
+![Step 2](step2.png)
+![Step 3](step3.png)
+![Step 4](step4.png)
+
+### Analysis Examples
+
+![Histogram](histogram_Sentence_2026-03-25_23-18-56.png)
+![Word Cloud](wordcloud_Sentence_2026-03-25_23-18-57.png)
+![Sentence Analysis 1](Sentence_2026-03-25_23-16-50.png)
+![Sentence Analysis 2](Sentence_2026-03-25_23-17-22.png)
+
+### Statistics
+
+![Stats Bar Chart](stats_bar_2026-03-25_23-21-03.png)
+![Stats Histogram](stats_hist_2026-03-25_23-21-03.png)
+![Stats Word Cloud](stats_wc_2026-03-25_23-21-03.png)
+

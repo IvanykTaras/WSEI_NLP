@@ -1,0 +1,38 @@
+[
+  {
+    "text": "This new update is amazing, everything runs so smooth!",
+    "classText": "positive"
+  },
+  {
+    "text": "The packge arrived broken and the support is useless.",
+    "classText": "negative"
+  },
+  {
+    "text": "The meeting is scheduled for 3 PM in the main hall.",
+    "classText": "neutral"
+  },
+  {
+    "text": "Best coffee I've had in a long time, totaly worth it.",
+    "classText": "positive"
+  },
+  {
+    "text": "I waited two hours for a table, never going back there.",
+    "classText": "negative"
+  },
+  {
+    "text": "The book has 300 pages and a blue cover.",
+    "classText": "neutral"
+  },
+  {
+    "text": "Absolutly stunning visuals in this game, wow!",
+    "classText": "positive"
+  },
+  {
+    "text": "The app crashes every time I try to upload a photo.",
+    "classText": "negative"
+  },
+  {
+    "text": "Terrible servce, the waiter forgot our drinks twice.",
+    "classText": "negative"
+  }
+]
