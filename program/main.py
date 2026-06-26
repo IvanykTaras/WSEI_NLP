@@ -2,11 +2,12 @@ import logging
 import os
 import numpy as np
 import pandas as pd
+from typing import Sequence
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-from providers.dataset_provider import DatasetProvider
-from providers.embedding_provider import EmbeddingProvider
+from providers.dataset_provider import DatasetProvider, SUPPORTED_DATASETS
+from providers.embedding_provider import EmbeddingProvider, SUPPORTED_EMBEDDINGS
 from providers.classification_provider import ClassificationProvider, ALL_MODELS
 from providers.visualization_provider import VisualizationProvider
 
@@ -15,7 +16,8 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-BOT_TOKEN = '8622639294:AAGSsDW82owPsvm5vZVJ3zIk7_NnKbnzhLI'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 dataset_provider = DatasetProvider()
 classification_provider = ClassificationProvider()
@@ -23,9 +25,10 @@ visualization_provider = VisualizationProvider()
 
 # Seedy używane dla kolejnych uruchomień (run=1 → seed[0], run=2 → seed[0]+seed[1], itd.)
 SEEDS = [42, 1337, 2024]
+DEFAULT_SAMPLE_FRACTION = 0.05
 
-CSV_FILE = "lab2results.csv"
-PLOTS_DIR = "lab2plots"
+CSV_FILE = os.path.join(BASE_DIR, "lab2results.csv")
+PLOTS_DIR = os.path.join(BASE_DIR, "lab2plots")
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +44,53 @@ def _parse_params(args: list) -> dict:
     return params
 
 
+def _format_supported(values: Sequence) -> str:
+    return ", ".join(f"`{value}`" for value in values)
+
+
+def _validate_params(params: dict) -> tuple[str, str, bool, int, str]:
+    dataset_name = params.get('dataset')
+    method = params.get('method')
+    gridsearch_value = params.get('gridsearch', 'false')
+    run_value = params.get('run', '1')
+    embedding_name = params.get('embedding', 'tfidf')
+
+    dataset_name = dataset_name.lower() if dataset_name else dataset_name
+    method = method.lower() if method else method
+    gridsearch_value = gridsearch_value.lower()
+    embedding_name = embedding_name.lower()
+
+    if not dataset_name or not method:
+        raise ValueError("Wymagane parametry: `dataset` i `method`.")
+    if dataset_name not in SUPPORTED_DATASETS:
+        raise ValueError(
+            f"Nieznany dataset `{dataset_name}`. Dostępne: {_format_supported(SUPPORTED_DATASETS)}."
+        )
+    if method not in ALL_MODELS + ["all"]:
+        raise ValueError(
+            f"Nieznany model `{method}`. Dostępne: {_format_supported(ALL_MODELS + ['all'])}."
+        )
+    if embedding_name not in SUPPORTED_EMBEDDINGS:
+        raise ValueError(
+            f"Nieznany embedding `{embedding_name}`. Dostępne: {_format_supported(SUPPORTED_EMBEDDINGS)}."
+        )
+    if gridsearch_value not in ("true", "false"):
+        raise ValueError("Parametr `gridsearch` musi mieć wartość `true` albo `false`.")
+
+    try:
+        run_count = int(run_value)
+    except ValueError as exc:
+        raise ValueError("Parametr `run` musi być liczbą: `1`, `2` albo `3`.") from exc
+
+    if run_count < 1 or run_count > len(SEEDS):
+        raise ValueError(f"Parametr `run` musi być od 1 do {len(SEEDS)}.")
+
+    if method != "all":
+        classification_provider.validate_model_embedding(method, embedding_name)
+
+    return dataset_name, method, gridsearch_value == "true", run_count, embedding_name
+
+
 def _save_result(embedding: str, model: str, accuracy: float, macro_f1: float, seed: int):
     row = pd.DataFrame([{
         "embedding": embedding,
@@ -49,6 +99,7 @@ def _save_result(embedding: str, model: str, accuracy: float, macro_f1: float, s
         "macro_f1": macro_f1,
         "seed": seed,
     }])
+    os.makedirs(os.path.dirname(CSV_FILE), exist_ok=True)
     if os.path.exists(CSV_FILE):
         row.to_csv(CSV_FILE, mode='a', header=False, index=False)
     else:
@@ -82,7 +133,7 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "*Przykłady:*\n"
         "`/classify dataset=20news_group method=all gridsearch=false run=1`\n"
         "`/classify dataset=imdb method=logreg gridsearch=true run=2 embedding=tfidf`\n"
-        "`/classify dataset=ag_news method=nb gridsearch=false run=3 embedding=glove`"
+        "`/classify dataset=ag_news method=logreg gridsearch=false run=3 embedding=glove`"
     )
     await update.message.reply_text(help_text, parse_mode='Markdown')
 
@@ -101,19 +152,7 @@ async def handle_classify(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         params = _parse_params(context.args)
-        dataset_name = params.get('dataset')
-        method = params.get('method')
-        use_gridsearch = params.get('gridsearch', 'false') == 'true'
-        run_count = int(params.get('run', '1'))          # liczba uruchomień (1–3)
-        embedding_name = params.get('embedding', 'tfidf')
-
-        if not dataset_name or not method:
-            await update.message.reply_text("❌ Wymagane parametry: `dataset` i `method`.", parse_mode='Markdown')
-            return
-
-        if run_count < 1 or run_count > len(SEEDS):
-            await update.message.reply_text(f"❌ Parametr `run` musi być od 1 do {len(SEEDS)}.", parse_mode='Markdown')
-            return
+        dataset_name, method, use_gridsearch, run_count, embedding_name = _validate_params(params)
 
         await update.message.reply_text(
             f"⏳ Rozpoczynam eksperyment...\n"
@@ -127,7 +166,11 @@ async def handle_classify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         # --- Ładowanie danych ---
-        X, y, target_names = dataset_provider.get_dataset(dataset_name, sample_fraction=0.05)
+        X, y, target_names = dataset_provider.get_dataset(
+            dataset_name,
+            sample_fraction=DEFAULT_SAMPLE_FRACTION,
+            seed=SEEDS[0]
+        )
 
         # -----------------------------------------------------------------------
         # PRZYPADEK: method=all  →  uruchamia wszystkie modele dla jednego seeda
@@ -149,7 +192,8 @@ async def handle_classify(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     X=X, y=y,
                     vectorizer_factory=make_vectorizer,
                     seed=seed,
-                    use_gridsearch=use_gridsearch
+                    use_gridsearch=use_gridsearch,
+                    embedding_name=embedding_name
                 )
                 all_run_results.append((seed, run_results))
 
@@ -173,7 +217,6 @@ async def handle_classify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         last_y_test = None
         last_y_pred = None
         last_pipeline = None
-        last_vectorizer = None
 
         for run_idx, seed in enumerate(seeds_to_use):
             await update.message.reply_text(
@@ -184,7 +227,8 @@ async def handle_classify(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             acc, macro_f1, y_test, y_pred, pipeline = classification_provider.run_experiment(
                 X=X, y=y, vectorizer=vectorizer,
-                model_name=method, seed=seed, use_gridsearch=use_gridsearch
+                model_name=method, seed=seed, use_gridsearch=use_gridsearch,
+                embedding_name=embedding_name
             )
 
             run_accuracies.append(acc)
@@ -194,8 +238,6 @@ async def handle_classify(update: Update, context: ContextTypes.DEFAULT_TYPE):
             last_y_test = y_test
             last_y_pred = y_pred
             last_pipeline = pipeline
-            last_vectorizer = vectorizer
-
             # Zapisujemy podobne słowa jeśli używamy word2vec lub glove
             if embedding_name in ("word2vec", "glove"):
                 word_model = embedding_provider.w2v_model.wv if embedding_name == "word2vec" \
@@ -264,7 +306,7 @@ async def handle_classify(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # --- Odpowiedź tekstowa ---
         runs_info = " | ".join([f"seed={s}: {a:.4f}" for s, a in zip(seeds_to_use, run_accuracies)])
-        feat_info = f"\n📄 Feature importance → `{feat_path}`" if feat_path else ""
+        feat_info = f"\n📄 Feature importance → `lab2plots/{os.path.basename(feat_path)}`" if feat_path else ""
 
         response = (
             f"✅ *EKSPERYMENT ZAKOŃCZONY*\n\n"
@@ -275,7 +317,7 @@ async def handle_classify(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📊 *Uśrednione wyniki:*\n"
             f"• Accuracy: `{mean_acc:.4f}`\n"
             f"• Macro F1: `{mean_f1:.4f}`\n\n"
-            f"💾 Wyniki zapisano w `{CSV_FILE}`"
+            f"💾 Wyniki zapisano w `{os.path.basename(CSV_FILE)}`"
             f"{feat_info}"
         )
 
@@ -299,7 +341,7 @@ async def handle_classify(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await _send_photo_safe(update, path, caption=f"☁️ Word Cloud — klasa: {class_name}")
             if len(wc_class_paths) > 3:
                 await update.message.reply_text(
-                    f"ℹ️ Pozostałe {len(wc_class_paths) - 3} wordclouds per klasa zapisano w `{PLOTS_DIR}/`",
+                    f"ℹ️ Pozostałe {len(wc_class_paths) - 3} wordclouds per klasa zapisano w `lab2plots/`",
                     parse_mode='Markdown'
                 )
 
@@ -338,6 +380,12 @@ async def _send_all_models_summary(
         mean_f1 = np.mean(scores["f1"])
         lines.append(f"• `{model_name.upper()}` — Acc: `{mean_acc:.4f}` | F1: `{mean_f1:.4f}`\n")
 
+    compatible_models = set(classification_provider.get_compatible_models(embedding_name))
+    skipped_models = set(ALL_MODELS) - compatible_models
+    if skipped_models:
+        skipped = ", ".join(sorted(skipped_models))
+        lines.append(f"\nℹ️ Pominięto modele niezgodne z embeddingiem `{embedding_name}`: `{skipped}`.\n")
+
     await update.message.reply_text("".join(lines), parse_mode='Markdown')
 
     # Wysyłamy macierze pomyłek z ostatniego run-u dla każdego modelu
@@ -365,6 +413,11 @@ async def _send_all_models_summary(
 # ---------------------------------------------------------------------------
 
 if __name__ == '__main__':
+    if not BOT_TOKEN:
+        raise RuntimeError(
+            "Brak zmiennej środowiskowej BOT_TOKEN. "
+            "Ustaw ją przed uruchomieniem, np. `export BOT_TOKEN=...`."
+        )
     print("Uruchamianie bota NLP (Lab 2)...")
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", send_welcome))

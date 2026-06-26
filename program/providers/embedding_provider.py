@@ -3,6 +3,11 @@ from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
 from gensim.models import Word2Vec
 import gensim.downloader as gensim_api
+import os
+
+SUPPORTED_EMBEDDINGS = ("bow", "tfidf", "word2vec", "glove")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 class MeanEmbeddingVectorizer(BaseEstimator, TransformerMixin):
     """
@@ -68,12 +73,15 @@ class EmbeddingProvider:
             return MeanEmbeddingVectorizer(self.glove_model, dim=100)
 
         else:
-            raise ValueError(f"Nieznana metoda embedingu: '{method}'. Dostępne: bow, tfidf, word2vec, glove")
+            raise ValueError(
+                f"Nieznana metoda embedingu: '{method}'. "
+                f"Dostępne: {', '.join(SUPPORTED_EMBEDDINGS)}"
+            )
 
     def _save_similar_words(self, word_vectors, label: str = "WORD2VEC"):
         """Zapisuje podobne słowa dla przykładowych zapytań do pliku lab2_similar_words.txt."""
         queries = ["space", "computer", "science", "music", "car"]
-        filename = "lab2_similar_words.txt"
+        filename = os.path.join(BASE_DIR, "lab2_similar_words.txt")
 
         # Dołączamy do pliku (append) lub tworzymy nowy
         mode = "a" if label == "GLOVE" else "w"

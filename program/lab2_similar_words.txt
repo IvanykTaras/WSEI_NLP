@@ -1,114 +1,39 @@
 --- PODOBNE SŁOWA (WORD2VEC) ---
 
 Zapytanie: 'space'
-  -> under (Pewność: 0.9998)
-  -> & (Pewność: 0.9998)
-  -> pts (Pewność: 0.9997)
-  -> graphics (Pewność: 0.9997)
-  -> -- (Pewność: 0.9996)
+  -> national (Pewność: 0.9998)
+  -> + (Pewność: 0.9998)
+  -> image (Pewność: 0.9998)
+  -> computer (Pewność: 0.9997)
+  -> research (Pewność: 0.9997)
 
 Zapytanie: 'computer'
-  -> -- (Pewność: 0.9998)
-  -> power (Pewność: 0.9997)
-  -> under (Pewność: 0.9997)
-  -> list: (Pewność: 0.9997)
-  -> between (Pewność: 0.9997)
+  -> data (Pewność: 0.9998)
+  -> image (Pewność: 0.9998)
+  -> national (Pewność: 0.9998)
+  -> space (Pewność: 0.9997)
+  -> three (Pewność: 0.9997)
 
 Zapytanie: 'science'
-  -> windows (Pewność: 0.9993)
-  -> "the (Pewność: 0.9992)
-  -> best (Pewność: 0.9992)
-  -> between (Pewność: 0.9992)
-  -> old (Pewność: 0.9992)
+  -> institute (Pewność: 0.9996)
+  -> image (Pewność: 0.9995)
+  -> two (Pewność: 0.9995)
+  -> computer (Pewność: 0.9995)
+  -> key (Pewność: 0.9995)
 
 Zapytanie: 'music'
-  -> & (Pewność: 0.9972)
-  -> + (Pewność: 0.9972)
-  -> (1st (Pewność: 0.9971)
-  -> aiu (Pewność: 0.9971)
-  -> 10 (Pewność: 0.9970)
+  -> median (Pewność: 0.8717)
+  -> berkley (Pewność: 0.8704)
+  -> equipped (Pewność: 0.8672)
+  -> sitting (Pewność: 0.8663)
+  -> convention (Pewność: 0.8658)
 
 Zapytanie: 'car'
-  -> system (Pewność: 0.9996)
-  -> into (Pewność: 0.9996)
-  -> without (Pewność: 0.9996)
-  -> most (Pewność: 0.9995)
-  -> off (Pewność: 0.9995)
-
---- PODOBNE SŁOWA (GLOVE) ---
-
-Zapytanie: 'space'
-  -> nasa (Pewność: 0.7037)
-  -> spaces (Pewność: 0.6882)
-  -> shuttle (Pewność: 0.6808)
-  -> earth (Pewność: 0.6727)
-  -> spacecraft (Pewność: 0.6626)
-
-Zapytanie: 'computer'
-  -> computers (Pewność: 0.8752)
-  -> software (Pewność: 0.8373)
-  -> technology (Pewność: 0.7642)
-  -> pc (Pewność: 0.7366)
-  -> hardware (Pewność: 0.7290)
-
-Zapytanie: 'science'
-  -> sciences (Pewność: 0.8073)
-  -> physics (Pewność: 0.7915)
-  -> institute (Pewność: 0.7663)
-  -> mathematics (Pewność: 0.7608)
-  -> studies (Pewność: 0.7590)
-
-Zapytanie: 'music'
-  -> musical (Pewność: 0.8128)
-  -> songs (Pewność: 0.7978)
-  -> dance (Pewność: 0.7897)
-  -> pop (Pewność: 0.7863)
-  -> recording (Pewność: 0.7651)
-
-Zapytanie: 'car'
-  -> vehicle (Pewność: 0.8631)
-  -> truck (Pewność: 0.8598)
-  -> cars (Pewność: 0.8372)
-  -> driver (Pewność: 0.8186)
-  -> driving (Pewność: 0.7813)
-
-
---- PODOBNE SŁOWA (GLOVE) ---
-
-Zapytanie: 'space'
-  -> nasa (Pewność: 0.7037)
-  -> spaces (Pewność: 0.6882)
-  -> shuttle (Pewność: 0.6808)
-  -> earth (Pewność: 0.6727)
-  -> spacecraft (Pewność: 0.6626)
-
-Zapytanie: 'computer'
-  -> computers (Pewność: 0.8752)
-  -> software (Pewność: 0.8373)
-  -> technology (Pewność: 0.7642)
-  -> pc (Pewność: 0.7366)
-  -> hardware (Pewność: 0.7290)
-
-Zapytanie: 'science'
-  -> sciences (Pewność: 0.8073)
-  -> physics (Pewność: 0.7915)
-  -> institute (Pewność: 0.7663)
-  -> mathematics (Pewność: 0.7608)
-  -> studies (Pewność: 0.7590)
-
-Zapytanie: 'music'
-  -> musical (Pewność: 0.8128)
-  -> songs (Pewność: 0.7978)
-  -> dance (Pewność: 0.7897)
-  -> pop (Pewność: 0.7863)
-  -> recording (Pewność: 0.7651)
-
-Zapytanie: 'car'
-  -> vehicle (Pewność: 0.8631)
-  -> truck (Pewność: 0.8598)
-  -> cars (Pewność: 0.8372)
-  -> driver (Pewność: 0.8186)
-  -> driving (Pewność: 0.7813)
+  -> before (Pewność: 0.9995)
+  -> disk (Pewność: 0.9995)
+  -> without (Pewność: 0.9995)
+  -> through (Pewność: 0.9995)
+  -> while (Pewność: 0.9995)
 
 
 --- PODOBNE SŁOWA (GLOVE) ---

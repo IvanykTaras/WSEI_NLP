@@ -1,6 +1,13 @@
 from sklearn.datasets import fetch_20newsgroups
-import pandas as pd
 import numpy as np
+import os
+import tempfile
+
+SUPPORTED_DATASETS = ("20news_group", "imdb", "amazon", "ag_news")
+SKLEARN_DATA_HOME = os.getenv(
+    "SKLEARN_DATA",
+    os.path.join(tempfile.gettempdir(), "wsei_nlp_sklearn_data")
+)
 
 
 class DatasetProvider:
@@ -9,7 +16,7 @@ class DatasetProvider:
     Odpowiada za pobieranie, ładowanie i wstępne formatowanie zbiorów danych.
     """
 
-    def get_dataset(self, name: str, sample_fraction: float = 1.0):
+    def get_dataset(self, name: str, sample_fraction: float = 1.0, seed: int = 42):
         """
         Zwraca zbiór danych podzielony na teksty (X), etykiety (y) i nazwy klas.
         sample_fraction pozwala na pobranie tylko części danych do szybkich testów.
@@ -17,34 +24,45 @@ class DatasetProvider:
         name = name.lower()
 
         if name == "20news_group":
-            return self._load_20news_group(sample_fraction)
+            return self._load_20news_group(sample_fraction, seed)
         elif name == "imdb":
-            return self._load_imdb(sample_fraction)
+            return self._load_imdb(sample_fraction, seed)
         elif name == "amazon":
-            return self._load_amazon(sample_fraction)
+            return self._load_amazon(sample_fraction, seed)
         elif name == "ag_news":
-            return self._load_ag_news(sample_fraction)
+            return self._load_ag_news(sample_fraction, seed)
         else:
             raise ValueError(
                 f"Nieznany zbiór danych: '{name}'. "
-                f"Dostępne: 20news_group, imdb, amazon, ag_news"
+                f"Dostępne: {', '.join(SUPPORTED_DATASETS)}"
             )
+
+    def _sample(self, X, y, sample_fraction: float, seed: int):
+        if not 0 < sample_fraction <= 1.0:
+            raise ValueError("sample_fraction musi być z zakresu (0, 1].")
+        if sample_fraction >= 1.0:
+            return X, y
+
+        sample_size = max(1, int(len(X) * sample_fraction))
+        rng = np.random.default_rng(seed)
+        indices = rng.choice(len(X), sample_size, replace=False)
+        return X[indices], y[indices]
 
     # ------------------------------------------------------------------
     # 20 Newsgroups
     # ------------------------------------------------------------------
-    def _load_20news_group(self, sample_fraction: float):
+    def _load_20news_group(self, sample_fraction: float, seed: int):
         print("Pobieranie/ładowanie datasetu 20news_group...")
-        dataset = fetch_20newsgroups(subset='all', remove=('headers', 'footers', 'quotes'))
+        dataset = fetch_20newsgroups(
+            subset='all',
+            remove=('headers', 'footers', 'quotes'),
+            data_home=SKLEARN_DATA_HOME
+        )
 
         X = np.array(dataset.data)
         y = np.array(dataset.target)
         target_names = dataset.target_names
-
-        if sample_fraction < 1.0:
-            sample_size = int(len(X) * sample_fraction)
-            indices = np.random.choice(len(X), sample_size, replace=False)
-            X, y = X[indices], y[indices]
+        X, y = self._sample(X, y, sample_fraction, seed)
 
         print(f"Załadowano {len(X)} próbek z 20news_group.")
         return X.tolist(), y.tolist(), list(target_names)
@@ -52,7 +70,7 @@ class DatasetProvider:
     # ------------------------------------------------------------------
     # IMDB  (HuggingFace datasets)
     # ------------------------------------------------------------------
-    def _load_imdb(self, sample_fraction: float):
+    def _load_imdb(self, sample_fraction: float, seed: int):
         print("Ładowanie datasetu IMDB (HuggingFace)...")
         try:
             from datasets import load_dataset
@@ -66,10 +84,7 @@ class DatasetProvider:
         y = np.array(ds["label"])
         target_names = ["negative", "positive"]
 
-        if sample_fraction < 1.0:
-            sample_size = int(len(X) * sample_fraction)
-            indices = np.random.choice(len(X), sample_size, replace=False)
-            X, y = X[indices], y[indices]
+        X, y = self._sample(X, y, sample_fraction, seed)
 
         print(f"Załadowano {len(X)} próbek z IMDB.")
         return X.tolist(), y.tolist(), target_names
@@ -77,7 +92,7 @@ class DatasetProvider:
     # ------------------------------------------------------------------
     # Amazon Reviews  (HuggingFace datasets — amazon_polarity)
     # ------------------------------------------------------------------
-    def _load_amazon(self, sample_fraction: float):
+    def _load_amazon(self, sample_fraction: float, seed: int):
         print("Ładowanie datasetu Amazon Reviews (HuggingFace)...")
         try:
             from datasets import load_dataset
@@ -92,10 +107,7 @@ class DatasetProvider:
         y = np.array(ds["label"])
         target_names = ["negative", "positive"]
 
-        if sample_fraction < 1.0:
-            sample_size = int(len(X) * sample_fraction)
-            indices = np.random.choice(len(X), sample_size, replace=False)
-            X, y = X[indices], y[indices]
+        X, y = self._sample(X, y, sample_fraction, seed)
 
         print(f"Załadowano {len(X)} próbek z Amazon Reviews.")
         return X.tolist(), y.tolist(), target_names
@@ -103,7 +115,7 @@ class DatasetProvider:
     # ------------------------------------------------------------------
     # AG News  (HuggingFace datasets)
     # ------------------------------------------------------------------
-    def _load_ag_news(self, sample_fraction: float):
+    def _load_ag_news(self, sample_fraction: float, seed: int):
         print("Ładowanie datasetu AG News (HuggingFace)...")
         try:
             from datasets import load_dataset
@@ -121,10 +133,7 @@ class DatasetProvider:
         X = np.array(texts)
         y = np.array(labels)
 
-        if sample_fraction < 1.0:
-            sample_size = int(len(X) * sample_fraction)
-            indices = np.random.choice(len(X), sample_size, replace=False)
-            X, y = X[indices], y[indices]
+        X, y = self._sample(X, y, sample_fraction, seed)
 
         print(f"Załadowano {len(X)} próbek z AG News.")
         return X.tolist(), y.tolist(), list(target_names)
