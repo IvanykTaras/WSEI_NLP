@@ -5,6 +5,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, f1_score
+from typing import Optional
 
 
 # Stałe z siatkami parametrów do GridSearch
@@ -16,6 +17,7 @@ PARAM_GRIDS = {
 }
 
 ALL_MODELS = ["nb", "rf", "logreg", "mlp"]
+DENSE_EMBEDDINGS = ("word2vec", "glove")
 
 
 def _build_classifier(model_name: str, seed: int):
@@ -43,7 +45,7 @@ class ClassificationProvider:
 
     def run_experiment(
         self, X: list, y: list, vectorizer, model_name: str,
-        seed: int, use_gridsearch: bool = False
+        seed: int, use_gridsearch: bool = False, embedding_name: Optional[str] = None
     ):
         """
         Trenuje pojedynczy model i zwraca metryki.
@@ -55,6 +57,7 @@ class ClassificationProvider:
             raise ValueError(
                 "Użyj run_all_models() dla method=all."
             )
+        self.validate_model_embedding(model_name, embedding_name)
 
         classifier = _build_classifier(model_name, seed)
         pipeline = Pipeline([
@@ -84,7 +87,7 @@ class ClassificationProvider:
 
     def run_all_models(
         self, X: list, y: list, vectorizer_factory,
-        seed: int, use_gridsearch: bool = False
+        seed: int, use_gridsearch: bool = False, embedding_name: Optional[str] = None
     ) -> list:
         """
         Uruchamia wszystkie modele (nb, rf, logreg, mlp) na tym samym zbiorze.
@@ -92,13 +95,15 @@ class ClassificationProvider:
         Zwraca listę słowników z wynikami.
         """
         results = []
-        for name in ALL_MODELS:
+        model_names = self.get_compatible_models(embedding_name)
+        for name in model_names:
             print(f"\n=== Uruchamiam model: {name.upper()} ===")
             try:
                 vectorizer = vectorizer_factory()
                 acc, f1, y_test, y_pred, pipeline = self.run_experiment(
                     X=X, y=y, vectorizer=vectorizer,
-                    model_name=name, seed=seed, use_gridsearch=use_gridsearch
+                    model_name=name, seed=seed, use_gridsearch=use_gridsearch,
+                    embedding_name=embedding_name
                 )
                 results.append({
                     "model_name": name,
@@ -113,3 +118,16 @@ class ClassificationProvider:
             except Exception as e:
                 print(f"  {name.upper()} — błąd: {e}")
         return results
+
+    def get_compatible_models(self, embedding_name: Optional[str]) -> list:
+        if embedding_name in DENSE_EMBEDDINGS:
+            return [model for model in ALL_MODELS if model != "nb"]
+        return ALL_MODELS.copy()
+
+    def validate_model_embedding(self, model_name: str, embedding_name: Optional[str]):
+        if model_name == "nb" and embedding_name in DENSE_EMBEDDINGS:
+            raise ValueError(
+                "Model nb (Multinomial Naive Bayes) nie obsługuje embeddingów "
+                "word2vec/glove, ponieważ wymagają one gęstych wektorów z możliwymi "
+                "wartościami ujemnymi. Użyj bow/tfidf albo wybierz rf/logreg/mlp."
+            )

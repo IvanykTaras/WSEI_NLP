@@ -1,12 +1,22 @@
+import os
+import tempfile
+
+os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(), "wsei_nlp_matplotlib"))
+
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 from wordcloud import WordCloud
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.manifold import TSNE
-import os
 import numpy as np
 import pandas as pd
+import re
+from typing import Optional
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class VisualizationProvider:
@@ -15,10 +25,13 @@ class VisualizationProvider:
     Odpowiada za generowanie wykresów, WordCloud oraz redukcję wymiarowości (PCA/t-SNE/SVD).
     """
 
-    def __init__(self):
-        self.plots_dir = "lab2plots"
+    def __init__(self, plots_dir: Optional[str] = None):
+        self.plots_dir = plots_dir or os.path.join(BASE_DIR, "lab2plots")
         if not os.path.exists(self.plots_dir):
             os.makedirs(self.plots_dir)
+
+    def _safe_filename_part(self, value: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9_-]+", "", str(value).replace(" ", "_").replace("/", "_"))
 
     # ------------------------------------------------------------------
     # Confusion Matrix
@@ -30,7 +43,7 @@ class VisualizationProvider:
         plt.title(f'Macierz Pomyłek: {dataset_name} | {model_name.upper()} | {embedding_name.upper()}')
         plt.ylabel('Rzeczywista klasa')
         plt.xlabel('Przewidziana klasa')
-        filename = f"{self.plots_dir}/confusion_{embedding_name}_{model_name}.png"
+        filename = os.path.join(self.plots_dir, f"confusion_{embedding_name}_{model_name}.png")
         plt.savefig(filename, dpi=100, bbox_inches='tight')
         plt.close()
         return filename
@@ -50,7 +63,7 @@ class VisualizationProvider:
         plt.axis('off')
         plt.title(f'Word Cloud — {title_suffix}')
 
-        filename = f"{self.plots_dir}/wordcloud_{title_suffix}.png"
+        filename = os.path.join(self.plots_dir, f"wordcloud_{title_suffix}.png")
         plt.savefig(filename, dpi=100, bbox_inches='tight')
         plt.close()
         return filename
@@ -69,8 +82,7 @@ class VisualizationProvider:
             if len(class_texts) == 0:
                 continue
 
-            # Sanityzujemy nazwę klasy do użycia w nazwie pliku
-            safe_name = class_name.replace("/", "_").replace(" ", "_").replace(".", "")
+            safe_name = self._safe_filename_part(class_name)
             path = self.plot_wordcloud(class_texts.tolist(), title_suffix=f"class_{safe_name}")
             saved.append(path)
 
@@ -98,10 +110,12 @@ class VisualizationProvider:
             # t-SNE jest wolny na dużych zbiorach — ograniczamy próbkę
             max_samples = 3000
             if len(X_dense) > max_samples:
-                idx = np.random.choice(len(X_dense), max_samples, replace=False)
+                rng = np.random.default_rng(42)
+                idx = rng.choice(len(X_dense), max_samples, replace=False)
                 X_dense = X_dense[idx]
                 y = np.array(y)[idx]
-            reducer = TSNE(n_components=2, random_state=42, perplexity=30)
+            perplexity = min(30, max(1, len(X_dense) - 1))
+            reducer = TSNE(n_components=2, random_state=42, perplexity=perplexity)
             X_reduced = reducer.fit_transform(X_dense)
         elif method == "svd":
             reducer = TruncatedSVD(n_components=2)
@@ -120,7 +134,10 @@ class VisualizationProvider:
         )
         plt.tight_layout()
 
-        filename = f"{self.plots_dir}/{dataset_name}_{model_name}_{embedding_name}_{method}_embedding.png"
+        filename = os.path.join(
+            self.plots_dir,
+            f"{dataset_name}_{model_name}_{embedding_name}_{method}_embedding.png"
+        )
         plt.savefig(filename, dpi=100, bbox_inches='tight')
         plt.close()
         return filename
@@ -165,7 +182,7 @@ class VisualizationProvider:
                                  alpha=0.4, fontsize=8)
 
             plt.title(f'Wizualizacja osadzenia słów ({method.upper()})')
-            filename = f"{self.plots_dir}/word_embedding_{method}.png"
+            filename = os.path.join(self.plots_dir, f"word_embedding_{method}.png")
             plt.savefig(filename, dpi=100, bbox_inches='tight')
             plt.close()
             saved_files.append(filename)
@@ -209,7 +226,7 @@ class VisualizationProvider:
 
         if records:
             df = pd.DataFrame(records)
-            filename = f"{self.plots_dir}/{dataset_name}_{model_name}_feature_importance.csv"
+            filename = os.path.join(self.plots_dir, f"{dataset_name}_{model_name}_feature_importance.csv")
             df.to_csv(filename, index=False)
             return filename
         return ""

@@ -49,7 +49,15 @@ pip install -r requirements.txt
 
 ### 3. Uruchom bota
 
+Token Telegrama nie jest zapisany w kodzie. Przed startem ustaw zmienną środowiskową `BOT_TOKEN`.
+
 ```bash
+# Linux / macOS
+export BOT_TOKEN="8622639294:AAGSsDW82owPsvm5vZVJ3zIk7_NnKbnzhLI"
+python main.py
+
+# Windows PowerShell
+$env:BOT_TOKEN="TU_WKLEJ_TOKEN_BOTA"
 python main.py
 ```
 
@@ -108,6 +116,8 @@ DatasetProvider          EmbeddingProvider      VisualizationProvider
 | `mlp`     | MLP Classifier           | `hidden_layer_sizes` ∈ {(128,), (256,128)}       |
 | `all`     | Wszystkie powyższe       | —                                                |
 
+`nb` działa tylko z `bow` i `tfidf`. Dla `word2vec` oraz `glove` bot pomija `nb` w trybie `method=all` albo zwraca czytelny błąd dla pojedynczej komendy, ponieważ Multinomial Naive Bayes wymaga nieujemnych cech.
+
 ---
 
 ## 📦 Generowane artefakty
@@ -148,6 +158,8 @@ DatasetProvider          EmbeddingProvider      VisualizationProvider
 - `run=1` → seed 42
 - `run=2` → seed 42 + 1337 (wyniki uśrednione)
 - `run=3` → seed 42 + 1337 + 2024 (wyniki uśrednione)
+
+Bot domyślnie używa małej, deterministycznej próbki datasetu (`5%`) na potrzeby szybkiego uruchamiania podczas laboratorium. Dzięki temu kolejne uruchomienia na tych samych parametrach są porównywalne.
 
 ---
 
@@ -259,6 +271,13 @@ Recenzje produktów Amazon (sentiment, duży dataset):
 
 ---
 
+## ⚠️ Uwagi wydajnościowe
+
+- Pierwsze użycie `imdb`, `amazon` albo `ag_news` może pobrać dane przez bibliotekę HuggingFace `datasets`.
+- Pierwsze użycie `embedding=glove` może pobrać model `glove-wiki-gigaword-100` przez Gensim.
+- `gridsearch=true`, `method=all`, `mlp`, `rf` oraz `glove` mogą działać zauważalnie dłużej niż podstawowe demo `20news_group + tfidf + nb/logreg`.
+- t-SNE jest automatycznie ograniczane do próbki dokumentów, żeby generowanie wizualizacji nie blokowało bota na dużych datasetach.
+
 ### 7️⃣ Embeddingi neuronowe — Word2Vec i GloVe
 
 Word2Vec trenowany na bieżącym korpusie — generuje też `lab2_similar_words.txt` i wykresy słów:
@@ -287,4 +306,68 @@ Analogicznie na innym datasecie z GloVe:
 
 ```
 /classify dataset=ag_news method=logreg gridsearch=true run=3 embedding=glove
+```
+
+---
+
+## Lab2 testy
+
+Podstawowy szybki test klasyfikacji:
+
+```
+/classify dataset=20news_group method=nb gridsearch=false run=1 embedding=tfidf
+```
+
+Porownanie reprezentacji tekstu:
+
+```
+/classify dataset=20news_group method=logreg gridsearch=false run=1 embedding=bow
+```
+
+```
+/classify dataset=20news_group method=logreg gridsearch=false run=1 embedding=tfidf
+```
+
+Wszystkie modele naraz:
+
+```
+/classify dataset=20news_group method=all gridsearch=false run=1 embedding=tfidf
+```
+
+Wiele uruchomien z usrednianiem:
+
+```
+/classify dataset=20news_group method=logreg gridsearch=false run=2 embedding=tfidf
+```
+
+GridSearch:
+
+```
+/classify dataset=20news_group method=nb gridsearch=true run=1 embedding=tfidf
+```
+
+Inne datasety:
+
+```
+/classify dataset=ag_news method=nb gridsearch=false run=1 embedding=tfidf
+```
+
+```
+/classify dataset=imdb method=logreg gridsearch=false run=1 embedding=tfidf
+```
+
+Embeddingi neuronowe:
+
+```
+/classify dataset=20news_group method=logreg gridsearch=false run=1 embedding=word2vec
+```
+
+```
+/classify dataset=20news_group method=logreg gridsearch=false run=1 embedding=glove
+```
+
+Test blednej kombinacji, powinien zwrocic czytelny blad:
+
+```
+/classify dataset=20news_group method=nb gridsearch=false run=1 embedding=glove
 ```
