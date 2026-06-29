@@ -1,0 +1,12 @@
+{
+  "saved_at": "2026-06-29T14:14:38.653039+00:00",
+  "command": "translate",
+  "result": {
+    "source_language": "en",
+    "target_language": "es",
+    "source_text": "This is a useful book.",
+    "translation": "Este es un libro útil.",
+    "model": "facebook/m2m100_418M",
+    "detection_confidence": 1.0
+  }
+}

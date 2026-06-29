@@ -4,6 +4,7 @@ import os
 import shlex
 import numpy as np
 import pandas as pd
+import requests
 from typing import Sequence
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
@@ -21,6 +22,17 @@ from providers.sentiment_provider import (
     SentimentProvider,
 )
 from providers.sequence_model_provider import SEQUENCE_MODELS, SequenceModelProvider
+from providers.entity_provider import EntityProvider, SUPPORTED_NER_METHODS
+from providers.lab4_artifact_provider import Lab4ArtifactProvider
+from providers.summarization_provider import (
+    SUPPORTED_SUMMARY_LENGTHS,
+    SUPPORTED_SUMMARY_TYPES,
+    SummarizationProvider,
+)
+from providers.translation_provider import (
+    SUPPORTED_TRANSLATION_LANGUAGES,
+    TranslationProvider,
+)
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -36,6 +48,10 @@ visualization_provider = VisualizationProvider()
 sequence_provider = SequenceModelProvider()
 sentiment_provider = SentimentProvider(dataset_provider=dataset_provider, sequence_provider=sequence_provider)
 lab3_visualization_provider = Lab3VisualizationProvider()
+entity_provider = EntityProvider()
+translation_provider = TranslationProvider()
+summarization_provider = SummarizationProvider()
+lab4_artifact_provider = Lab4ArtifactProvider()
 
 # Seedy używane dla kolejnych uruchomień (run=1 → seed[0], run=2 → seed[0]+seed[1], itd.)
 SEEDS = [42, 1337, 2024]
@@ -157,13 +173,33 @@ async def _send_photo_safe(update: Update, path: str, caption: str = "", parse_m
         await update.message.reply_text(f"⚠️ Nie udało się wysłać wykresu `{os.path.basename(path)}`: {e}")
 
 
+async def _reply_long_text(update: Update, text: str, chunk_size: int = 3900):
+    """Wysyła długą odpowiedź w bezpiecznych fragmentach dla Telegrama."""
+    remaining = text.strip()
+    while remaining:
+        if len(remaining) <= chunk_size:
+            chunk, remaining = remaining, ""
+        else:
+            split_at = remaining.rfind("\n", 0, chunk_size)
+            if split_at < chunk_size // 2:
+                split_at = remaining.rfind(" ", 0, chunk_size)
+            if split_at < chunk_size // 2:
+                split_at = chunk_size
+            chunk, remaining = remaining[:split_at], remaining[split_at:].lstrip()
+        await update.message.reply_text(chunk)
+
+
+def _artifact_relative_path(path: str) -> str:
+    return os.path.relpath(path, BASE_DIR)
+
+
 # ---------------------------------------------------------------------------
 # /start  /help
 # ---------------------------------------------------------------------------
 
 async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
-        "🤖 *Bot NLP — Laboratorium 2 + 3*\n\n"
+        "🤖 *Bot NLP — Laboratorium 2 + 3 + 4*\n\n"
         "Dostępne komendy:\n"
         "`/classify dataset=<nazwa> method=<model> gridsearch=<true/false> run=<n> embedding=<typ>`\n"
         "`/sentiment method=<metoda> text=\"tekst\"`\n"
@@ -171,6 +207,14 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "`/compare dataset=<amazon|imdb|custom> methods=<lista>`\n"
         "`/add_sentiment \"tekst\" \"etykieta\"`\n"
         "`/models`\n\n"
+        "*Komendy Lab4:*\n"
+        "`/ner method=<spacy|stanza> text=\"tekst\"`\n"
+        "`/nel text=\"encja\" language=<pl|en>`\n"
+        "`/ned entity=\"encja\" context=\"kontekst\"`\n"
+        "`/translate text=\"tekst\" target_lang=<en|pl|de|fr|es>`\n"
+        "`/summarize text=\"tekst\" summary_type=<typ> length=<długość>`\n"
+        "`/analyze_entities text=\"tekst\" link=<true|false>`\n"
+        "`/language_detect text=\"tekst\"`\n\n"
         "*Datasety Lab2:* `20news_group`, `imdb`, `amazon`, `ag_news`\n"
         "*Datasety Lab3:* `amazon`, `imdb`, `custom`\n"
         "*Modele:* `nb`, `rf`, `mlp`, `logreg`, `all`\n"
@@ -179,7 +223,9 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "`/classify dataset=20news_group method=all gridsearch=false run=1`\n"
         "`/sentiment method=rule text=\"To byl swietny film\"`\n"
         "`/train model=simplernn dataset=custom`\n"
-        "`/compare dataset=custom methods=rule,nb,rf,textblob`"
+        "`/compare dataset=custom methods=rule,nb,rf,textblob`\n"
+        "`/ner method=spacy text=\"Steve Jobs założył Apple\"`\n"
+        "`/translate text=\"Good morning\" target_lang=pl`"
     )
     await update.message.reply_text(help_text, parse_mode='Markdown')
 
@@ -655,6 +701,246 @@ async def handle_models(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------------------------------------------------------------------
+# Lab 4: NER, NEL/NED, tłumaczenie, detekcja języka i podsumowanie
+# ---------------------------------------------------------------------------
+
+def _format_entity_rows(entities: list) -> str:
+    if not entities:
+        return "Nie znaleziono encji."
+    lines = []
+    for entity in entities:
+        lines.append(
+            f"- {entity['text']} ({entity['type']}) [{entity['start']}:{entity['end']}]"
+        )
+        if "linking" in entity:
+            for candidate in entity["linking"][:2]:
+                lines.append(
+                    f"  • {candidate['label']} ({candidate['id']}), "
+                    f"confidence={candidate['confidence']:.2f}"
+                )
+            if entity.get("linking_error"):
+                lines.append(f"  • Linkowanie: {entity['linking_error']}")
+    return "\n".join(lines)
+
+
+def _format_candidate_rows(candidates: list, score_key: str = "confidence") -> str:
+    if not candidates:
+        return "Brak kandydatów."
+    lines = []
+    for index, candidate in enumerate(candidates, start=1):
+        score = candidate.get(score_key, candidate.get("confidence", 0.0))
+        lines.append(
+            f"{index}. {candidate['label']} ({candidate['id']})\n"
+            f"   {candidate.get('description') or 'Brak opisu'}\n"
+            f"   Wikidata: {candidate.get('wikidata_url') or '-'}\n"
+            f"   Wikipedia: {candidate.get('wikipedia_url') or '-'}\n"
+            f"   Confidence: {score:.4f}"
+        )
+    return "\n".join(lines)
+
+
+async def handle_ner(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        params = _parse_params_preserve_case(context.args)
+        method = params.get("method", "").lower()
+        text = params.get("text", "")
+        if not method or not text:
+            raise ValueError('Użyj: /ner method=<spacy|stanza> text="tekst".')
+        if method not in SUPPORTED_NER_METHODS:
+            raise ValueError(f"Metoda musi być jedną z: {', '.join(SUPPORTED_NER_METHODS)}.")
+        await update.message.reply_text(f"⏳ Analizuję encje metodą {method}...")
+        result = await asyncio.to_thread(entity_provider.recognize, method, text)
+        path = lab4_artifact_provider.save_json("ner", result)
+        response = (
+            f"✅ NER — {method}\n\n"
+            f"{_format_entity_rows(result['entities'])}\n\n"
+            f"Wynik zapisano: {_artifact_relative_path(path)}"
+        )
+        await _reply_long_text(update, response)
+    except (ValueError, ImportError, FileNotFoundError, RuntimeError) as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_nel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        params = _parse_params_preserve_case(context.args)
+        text = params.get("text", "")
+        language = params.get("language", "pl").lower()
+        if not text:
+            raise ValueError('Użyj: /nel text="encja" language=<pl|en>.')
+        await update.message.reply_text("⏳ Szukam kandydatów w Wikidata i lokalnej bazie...")
+        result = await asyncio.to_thread(entity_provider.link_entity, text, language, 5)
+        path = lab4_artifact_provider.save_json("nel", result)
+        response = (
+            f"✅ NEL\nEncja: {result['entity']}\nŹródło: {result['source']}\n\n"
+            f"{_format_candidate_rows(result['candidates'])}\n\n"
+            f"Wynik zapisano: {_artifact_relative_path(path)}"
+        )
+        await _reply_long_text(update, response)
+    except (ValueError, RuntimeError, requests.RequestException) as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_ned(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        params = _parse_params_preserve_case(context.args)
+        entity = params.get("entity", "")
+        entity_context = params.get("context", "")
+        language = params.get("language", "pl").lower()
+        if not entity or not entity_context:
+            raise ValueError('Użyj: /ned entity="encja" context="tekst".')
+        await update.message.reply_text("⏳ Oceniam kandydatów w kontekście...")
+        result = await asyncio.to_thread(
+            entity_provider.disambiguate, entity, entity_context, language
+        )
+        path = lab4_artifact_provider.save_json("ned", result)
+        selected = result["selected"]
+        if selected:
+            selected_text = (
+                f"Wybrano: {selected['label']} ({selected['id']})\n"
+                f"Score: {selected['ned_score']:.4f}\n"
+                f"Opis: {selected.get('description') or '-'}\n"
+                f"Wikipedia: {selected.get('wikipedia_url') or '-'}"
+            )
+        else:
+            selected_text = "Nie wybrano kandydata — pewność była zbyt niska."
+        response = (
+            f"✅ NED\n{selected_text}\n\nRanking:\n"
+            f"{_format_candidate_rows(result['candidates'], 'ned_score')}\n\n"
+            f"Wynik zapisano: {_artifact_relative_path(path)}"
+        )
+        await _reply_long_text(update, response)
+    except (ValueError, RuntimeError, requests.RequestException) as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_analyze_entities(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        params = _parse_params_preserve_case(context.args)
+        text = params.get("text", "")
+        link_value = params.get("link", "false").lower()
+        method = params.get("method", "spacy").lower()
+        if not text:
+            raise ValueError('Użyj: /analyze_entities text="tekst" link=<true|false>.')
+        if link_value not in ("true", "false"):
+            raise ValueError("Parametr link musi mieć wartość true albo false.")
+        link = link_value == "true"
+        await update.message.reply_text(
+            "⏳ Rozpoznaję i linkuję encje..." if link else "⏳ Rozpoznaję encje..."
+        )
+        result = await asyncio.to_thread(entity_provider.analyze_entities, text, link, method)
+        path = lab4_artifact_provider.save_json("analyze_entities", result)
+        response = (
+            f"✅ Analiza encji — {method}, link={str(link).lower()}\n\n"
+            f"{_format_entity_rows(result['entities'])}\n\n"
+            f"Wynik zapisano: {_artifact_relative_path(path)}"
+        )
+        await _reply_long_text(update, response)
+    except (ValueError, ImportError, FileNotFoundError, RuntimeError) as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_language_detect(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        params = _parse_params_preserve_case(context.args)
+        text = params.get("text", "")
+        if not text:
+            raise ValueError('Użyj: /language_detect text="tekst".')
+        result = await asyncio.to_thread(translation_provider.detect_language, text)
+        path = lab4_artifact_provider.save_json("language_detect", result)
+        alternatives = ", ".join(
+            f"{row['language']}={row['confidence']:.4f}" for row in result["alternatives"]
+        )
+        await update.message.reply_text(
+            f"✅ Wykryty język: {result['language']}\n"
+            f"Confidence: {result['confidence']:.4f}\n"
+            f"Kandydaci: {alternatives}\n"
+            f"Wynik zapisano: {_artifact_relative_path(path)}"
+        )
+    except (ValueError, ImportError) as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        params = _parse_params_preserve_case(context.args)
+        text = params.get("text", "")
+        target_language = params.get("target_lang", "").lower()
+        if not text or not target_language:
+            raise ValueError(
+                '/translate wymaga text="tekst" i target_lang=<en|pl|de|fr|es>.'
+            )
+        if target_language not in SUPPORTED_TRANSLATION_LANGUAGES:
+            raise ValueError(
+                f"Język docelowy musi być jednym z: {', '.join(SUPPORTED_TRANSLATION_LANGUAGES)}."
+            )
+        await update.message.reply_text(
+            "⏳ Wykrywam język i tłumaczę lokalnym modelem M2M100. Pierwsze użycie może potrwać chwilę..."
+        )
+        result = await asyncio.to_thread(
+            translation_provider.translate, text, target_language
+        )
+        path = lab4_artifact_provider.save_json("translate", result)
+        response = (
+            f"✅ Tłumaczenie ({result['source_language']} → {result['target_language']})\n"
+            f"Model: {result['model']}\n\n{result['translation']}\n\n"
+            f"Wynik zapisano: {_artifact_relative_path(path)}"
+        )
+        await _reply_long_text(update, response)
+    except (ValueError, ImportError, FileNotFoundError, RuntimeError) as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        params = _parse_params_preserve_case(context.args)
+        text = params.get("text", "")
+        summary_type = params.get("summary_type", "abstractive").lower()
+        length = params.get("length", "medium").lower()
+        custom_prompt = params.get("prompt", "")
+        if not text:
+            raise ValueError(
+                '/summarize wymaga text="tekst"; opcjonalnie summary_type i length.'
+            )
+        if summary_type not in SUPPORTED_SUMMARY_TYPES:
+            raise ValueError(
+                f"summary_type musi być jednym z: {', '.join(SUPPORTED_SUMMARY_TYPES)}."
+            )
+        if length not in SUPPORTED_SUMMARY_LENGTHS:
+            raise ValueError(
+                f"length musi być jednym z: {', '.join(SUPPORTED_SUMMARY_LENGTHS)}."
+            )
+        await update.message.reply_text(
+            f"⏳ Generuję podsumowanie {summary_type}/{length} przez Ollama..."
+        )
+        result = await asyncio.to_thread(
+            summarization_provider.summarize,
+            text,
+            summary_type,
+            length,
+            custom_prompt,
+        )
+        path = lab4_artifact_provider.save_text(
+            "summarize",
+            result["summary"],
+            {
+                "model": result["model"],
+                "summary_type": result["summary_type"],
+                "length": result["length"],
+                "generation_seconds": result["generation_seconds"],
+            },
+        )
+        response = (
+            f"✅ Podsumowanie — {result['summary_type']}/{result['length']}\n"
+            f"Model: {result['model']}\nCzas: {result['generation_seconds']:.2f}s\n\n"
+            f"{result['summary']}\n\nWynik zapisano: {_artifact_relative_path(path)}"
+        )
+        await _reply_long_text(update, response)
+    except (ValueError, FileNotFoundError, RuntimeError, TimeoutError) as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+# ---------------------------------------------------------------------------
 # Uruchomienie bota
 # ---------------------------------------------------------------------------
 
@@ -664,7 +950,7 @@ if __name__ == '__main__':
             "Brak zmiennej środowiskowej BOT_TOKEN. "
             "Ustaw ją przed uruchomieniem, np. `export BOT_TOKEN=...`."
         )
-    print("Uruchamianie bota NLP (Lab 2 + Lab 3)...")
+    print("Uruchamianie bota NLP (Lab 2 + Lab 3 + Lab 4)...")
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", send_welcome))
     app.add_handler(CommandHandler("help", send_welcome))
@@ -674,4 +960,11 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("compare", handle_compare))
     app.add_handler(CommandHandler("add_sentiment", handle_add_sentiment))
     app.add_handler(CommandHandler("models", handle_models))
+    app.add_handler(CommandHandler("ner", handle_ner))
+    app.add_handler(CommandHandler("nel", handle_nel))
+    app.add_handler(CommandHandler("ned", handle_ned))
+    app.add_handler(CommandHandler("analyze_entities", handle_analyze_entities))
+    app.add_handler(CommandHandler("language_detect", handle_language_detect))
+    app.add_handler(CommandHandler("translate", handle_translate))
+    app.add_handler(CommandHandler("summarize", handle_summarize))
     app.run_polling()

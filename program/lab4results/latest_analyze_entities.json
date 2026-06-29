@@ -1,0 +1,117 @@
+{
+  "saved_at": "2026-06-29T14:13:54.374922+00:00",
+  "command": "analyze_entities",
+  "result": {
+    "method": "spacy",
+    "language": "pl",
+    "text": "Elon Musk posiada firmę Tesla w Austin.",
+    "entities": [
+      {
+        "text": "Elon Musk",
+        "type": "PERSON",
+        "start": 0,
+        "end": 9,
+        "linking": [
+          {
+            "id": "Q317521",
+            "label": "Elon Musk",
+            "description": "południowoafrykański przedsiębiorca",
+            "wikipedia_url": "https://pl.wikipedia.org/wiki/Elon_Musk",
+            "wikidata_url": "https://www.wikidata.org/wiki/Q317521",
+            "source": "wikidata",
+            "confidence": 1.0
+          },
+          {
+            "id": "Q123134390",
+            "label": "Elon Musk",
+            "description": "2023 single by Shallipopi",
+            "wikipedia_url": null,
+            "wikidata_url": "https://www.wikidata.org/wiki/Q123134390",
+            "source": "wikidata",
+            "confidence": 0.85
+          },
+          {
+            "id": "Q122380405",
+            "label": "Elon Musk",
+            "description": "2023 authorized biography by Walter Isaacson",
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Elon_Musk_%28Isaacson_book%29",
+            "wikidata_url": "https://www.wikidata.org/wiki/Q122380405",
+            "source": "wikidata",
+            "confidence": 0.8
+          }
+        ]
+      },
+      {
+        "text": "Tesla",
+        "type": "ORG",
+        "start": 24,
+        "end": 29,
+        "linking": [
+          {
+            "id": "Q163343",
+            "label": "tesla",
+            "description": "jednostka indukcji magnetycznej w układzie SI",
+            "wikipedia_url": "https://pl.wikipedia.org/wiki/Tesla_%28jednostka%29",
+            "wikidata_url": "https://www.wikidata.org/wiki/Q163343",
+            "source": "wikidata",
+            "confidence": 1.0
+          },
+          {
+            "id": "Q478214",
+            "label": "Tesla, Inc.",
+            "description": "amerykański producent samochodów",
+            "wikipedia_url": "https://pl.wikipedia.org/wiki/Tesla_%28ameryka%C5%84skie_przedsi%C4%99biorstwo%29",
+            "wikidata_url": "https://www.wikidata.org/wiki/Q478214",
+            "source": "wikidata",
+            "confidence": 0.85
+          },
+          {
+            "id": "Q1428953",
+            "label": "Tesla",
+            "description": "amerykański zespół rockowy",
+            "wikipedia_url": "https://pl.wikipedia.org/wiki/Tesla_%28zesp%C3%B3%C5%82_muzyczny%29",
+            "wikidata_url": "https://www.wikidata.org/wiki/Q1428953",
+            "source": "wikidata",
+            "confidence": 0.8
+          }
+        ]
+      },
+      {
+        "text": "Austin",
+        "type": "LOCATION",
+        "start": 32,
+        "end": 38,
+        "linking": [
+          {
+            "id": "Q16559",
+            "label": "Austin",
+            "description": "miasto w USA, stolica Teksasu",
+            "wikipedia_url": "https://pl.wikipedia.org/wiki/Austin",
+            "wikidata_url": "https://www.wikidata.org/wiki/Q16559",
+            "source": "wikidata",
+            "confidence": 1.0
+          },
+          {
+            "id": "Q780944",
+            "label": "Austin",
+            "description": "city in, and the county seat of, Mower County, Minnesota, United States",
+            "wikipedia_url": "https://pl.wikipedia.org/wiki/Austin_%28Minnesota%29",
+            "wikidata_url": "https://www.wikidata.org/wiki/Q780944",
+            "source": "wikidata",
+            "confidence": 0.85
+          },
+          {
+            "id": "Q780883",
+            "label": "Austin",
+            "description": "nazwisko",
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Austin_%28surname%29",
+            "wikidata_url": "https://www.wikidata.org/wiki/Q780883",
+            "source": "wikidata",
+            "confidence": 0.8
+          }
+        ]
+      }
+    ],
+    "link": true
+  }
+}

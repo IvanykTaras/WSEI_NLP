@@ -1,0 +1,77 @@
+{
+  "saved_at": "2026-06-29T14:13:42.796071+00:00",
+  "command": "ned",
+  "result": {
+    "entity": "Apple",
+    "context": "Apple is a fruit growing on a tree and used in pies.",
+    "language": "en",
+    "selected": {
+      "id": "Q89",
+      "label": "apple",
+      "description": "edible fruit of the apple tree",
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Apple",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q89",
+      "source": "wikidata",
+      "confidence": 0.8,
+      "context_similarity": 0.133,
+      "ned_score": 0.4465
+    },
+    "candidates": [
+      {
+        "id": "Q89",
+        "label": "apple",
+        "description": "edible fruit of the apple tree",
+        "wikipedia_url": "https://en.wikipedia.org/wiki/Apple",
+        "wikidata_url": "https://www.wikidata.org/wiki/Q89",
+        "source": "wikidata",
+        "confidence": 0.8,
+        "context_similarity": 0.133,
+        "ned_score": 0.4465
+      },
+      {
+        "id": "Q312",
+        "label": "Apple Inc.",
+        "description": "American multinational technology company based in Cupertino, California",
+        "wikipedia_url": "https://en.wikipedia.org/wiki/Apple_Inc.",
+        "wikidata_url": "https://www.wikidata.org/wiki/Q312",
+        "source": "wikidata",
+        "confidence": 1.0,
+        "context_similarity": 0.0421,
+        "ned_score": 0.4253
+      },
+      {
+        "id": "Q213710",
+        "label": "Apple Records",
+        "description": "UK international record label; imprint of Apple Corps Ltd.",
+        "wikipedia_url": "https://en.wikipedia.org/wiki/Apple_Records",
+        "wikidata_url": "https://www.wikidata.org/wiki/Q213710",
+        "source": "wikidata",
+        "confidence": 0.85,
+        "context_similarity": 0.0211,
+        "ned_score": 0.3877
+      },
+      {
+        "id": "Q20056642",
+        "label": "Apple Music",
+        "description": "Internet online music service by Apple",
+        "wikipedia_url": "https://en.wikipedia.org/wiki/Apple_Music",
+        "wikidata_url": "https://www.wikidata.org/wiki/Q20056642",
+        "source": "wikidata",
+        "confidence": 0.775,
+        "context_similarity": 0.0262,
+        "ned_score": 0.3782
+      },
+      {
+        "id": "Q26944931",
+        "label": "Apple",
+        "description": "unisex given name",
+        "wikipedia_url": null,
+        "wikidata_url": "https://www.wikidata.org/wiki/Q26944931",
+        "source": "wikidata",
+        "confidence": 0.76,
+        "context_similarity": 0.0,
+        "ned_score": 0.36
+      }
+    ]
+  }
+}

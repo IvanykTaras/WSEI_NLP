@@ -1,4 +1,4 @@
-# NLP Bot — Laboratorium 2 i 3
+# NLP Bot — Laboratorium 2, 3 i 4
 
 ## 📁 Struktura projektu
 
@@ -521,4 +521,149 @@ Test brakującego modelu, powinien zwrócić informację o wymaganym treningu:
 
 ```
 /sentiment method=lstm dataset=custom text="Ten model nie był jeszcze trenowany"
+```
+
+---
+
+## Lab4 testy
+
+Lab4 dodaje NER (spaCy i Stanza), NEL/NED z Wikidata i lokalną bazą, detekcję języka,
+tłumaczenie modelem M2M100 oraz podsumowania przez lokalne Ollama. Wyniki są zapisywane
+w `program/lab4results/`.
+
+Przed testami zainstaluj zależności i jawnie pobierz modele. Bot nie pobiera ich automatycznie
+w trakcie obsługi komendy Telegram:
+
+```bash
+python3 -m pip install -r program/requirements.txt
+python3 -m spacy download pl_core_news_sm
+python3 -c "import stanza; stanza.download('pl', processors='tokenize,ner')"
+python3 -c "from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer; n='facebook/m2m100_418M'; M2M100Tokenizer.from_pretrained(n); M2M100ForConditionalGeneration.from_pretrained(n)"
+ollama pull gemma3:1b
+```
+
+NER spaCy — oczekiwane encje osoby, organizacji i lokalizacji:
+
+```
+/ner method=spacy text="Steve Jobs, współzałożyciel Apple, urodził się w San Francisco."
+```
+
+NER Stanza — drugi wymagany silnik:
+
+```
+/ner method=stanza text="Robert Lewandowski grał w klubie Bayern Monachium."
+```
+
+NER bez encji — oczekiwany poprawny wynik `Nie znaleziono encji`, bez wyjątku:
+
+```
+/ner method=spacy text="Dzisiaj jest bardzo pogodnie."
+```
+
+NEL — kandydaci z identyfikatorami Wikidata i linkami Wikipedii:
+
+```
+/nel text="Steve Jobs" language=pl
+```
+
+NEL encji wieloznacznej:
+
+```
+/nel text="Apple" language=en
+```
+
+NED — kontekst technologiczny powinien wybrać Apple Inc., a kontekst owocu jabłko:
+
+```
+/ned entity="Apple" context="Apple produkuje komputery Mac i telefony iPhone." language=pl
+```
+
+```
+/ned entity="Apple" context="Apple is a fruit growing on a tree and used in pies." language=en
+```
+
+Analiza encji bez sieciowego linkowania:
+
+```
+/analyze_entities text="Elon Musk posiada firmę Tesla w Austin." link=false
+```
+
+Analiza połączona z NEL:
+
+```
+/analyze_entities text="Elon Musk posiada firmę Tesla w Austin." link=true
+```
+
+Detekcja języka polskiego i angielskiego:
+
+```
+/language_detect text="To jest przykładowe zdanie napisane po polsku."
+```
+
+```
+/language_detect text="This sentence was written in English."
+```
+
+Tłumaczenia obejmujące wszystkie obsługiwane języki docelowe:
+
+```
+/translate text="This is a useful book." target_lang=pl
+```
+
+```
+/translate text="To jest przydatna książka." target_lang=en
+```
+
+```
+/translate text="This is a useful book." target_lang=de
+```
+
+```
+/translate text="To jest przydatna książka." target_lang=fr
+```
+
+```
+/translate text="This is a useful book." target_lang=es
+```
+
+Podsumowanie abstrakcyjne, krótkie:
+
+```
+/summarize text="Sztuczna inteligencja wspiera analizę dużych zbiorów danych. Modele językowe potrafią odpowiadać na pytania, tłumaczyć oraz streszczać tekst. Wyniki powinny być jednak sprawdzane przez człowieka." summary_type=abstractive length=short
+```
+
+Podsumowanie ekstrakcyjne, średnie:
+
+```
+/summarize text="Warszawa jest stolicą Polski. Miasto leży nad Wisłą i jest ważnym ośrodkiem gospodarczym. Znajduje się tam wiele uczelni, muzeów i instytucji kultury." summary_type=extractive length=medium
+```
+
+Podsumowanie punktowe, długie:
+
+```
+/summarize text="Uczenie maszynowe obejmuje przygotowanie danych, wybór modelu, trening i ewaluację. Dane należy oczyścić i podzielić na zbiory treningowe oraz testowe. Metryki trzeba dobrać do problemu. Gotowy model powinien być monitorowany po wdrożeniu." summary_type=bullets length=long
+```
+
+Niestandardowy prompt:
+
+```
+/summarize text="Projekt obejmuje implementację bota, testy automatyczne i dokumentację. Termin oddania przypada na piątek." summary_type=custom length=short prompt="Wypisz wyłącznie zadania i termin."
+```
+
+Test nieznanej metody NER — oczekiwany czytelny błąd:
+
+```
+/ner method=bert text="Warszawa"
+```
+
+Test nieobsługiwanego języka tłumaczenia — oczekiwany czytelny błąd:
+
+```
+/translate text="Test" target_lang=it
+```
+
+Test brakującego promptu custom — oczekiwany czytelny błąd:
+
+```
+/summarize text="Przykładowy tekst" summary_type=custom length=short
 ```

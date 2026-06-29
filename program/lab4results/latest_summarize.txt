@@ -1,0 +1,6 @@
+model: gemma3:1b
+summary_type: custom
+length: short
+generation_seconds: 0.5
+
+Wypisz zadania i termin oddania.

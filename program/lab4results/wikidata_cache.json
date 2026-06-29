@@ -1,0 +1,248 @@
+{
+  "en:steve jobs": [
+    {
+      "id": "Q19837",
+      "label": "Steve Jobs",
+      "description": "American entrepreneur; co-founder of Apple Inc. (1955–2011)",
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Steve_Jobs",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q19837",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q18754959",
+      "label": "Steve Jobs",
+      "description": "2015 film directed by Danny Boyle",
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Steve_Jobs_%28film%29",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q18754959",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q16460065",
+      "label": "Steve Jobs",
+      "description": "1st Simon & Schuster hardcover edition",
+      "wikipedia_url": null,
+      "wikidata_url": "https://www.wikidata.org/wiki/Q16460065",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q109983309",
+      "label": "Steve Jobs",
+      "description": "person identified in the Museu da Pessoa collection",
+      "wikipedia_url": null,
+      "wikidata_url": "https://www.wikidata.org/wiki/Q109983309",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q625645",
+      "label": "Steve Jobs",
+      "description": "2011 authorized biography by Walter Isaacson",
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Steve_Jobs_%28book%29",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q625645",
+      "source": "wikidata"
+    }
+  ],
+  "en:apple": [
+    {
+      "id": "Q312",
+      "label": "Apple Inc.",
+      "description": "American multinational technology company based in Cupertino, California",
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Apple_Inc.",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q312",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q213710",
+      "label": "Apple Records",
+      "description": "UK international record label; imprint of Apple Corps Ltd.",
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Apple_Records",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q213710",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q89",
+      "label": "apple",
+      "description": "edible fruit of the apple tree",
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Apple",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q89",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q20056642",
+      "label": "Apple Music",
+      "description": "Internet online music service by Apple",
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Apple_Music",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q20056642",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q26944931",
+      "label": "Apple",
+      "description": "unisex given name",
+      "wikipedia_url": null,
+      "wikidata_url": "https://www.wikidata.org/wiki/Q26944931",
+      "source": "wikidata"
+    }
+  ],
+  "pl:elon musk": [
+    {
+      "id": "Q317521",
+      "label": "Elon Musk",
+      "description": "południowoafrykański przedsiębiorca",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Elon_Musk",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q317521",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q123134390",
+      "label": "Elon Musk",
+      "description": "2023 single by Shallipopi",
+      "wikipedia_url": null,
+      "wikidata_url": "https://www.wikidata.org/wiki/Q123134390",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q122380405",
+      "label": "Elon Musk",
+      "description": "2023 authorized biography by Walter Isaacson",
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Elon_Musk_%28Isaacson_book%29",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q122380405",
+      "source": "wikidata"
+    }
+  ],
+  "pl:tesla": [
+    {
+      "id": "Q163343",
+      "label": "tesla",
+      "description": "jednostka indukcji magnetycznej w układzie SI",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Tesla_%28jednostka%29",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q163343",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q478214",
+      "label": "Tesla, Inc.",
+      "description": "amerykański producent samochodów",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Tesla_%28ameryka%C5%84skie_przedsi%C4%99biorstwo%29",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q478214",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q1428953",
+      "label": "Tesla",
+      "description": "amerykański zespół rockowy",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Tesla_%28zesp%C3%B3%C5%82_muzyczny%29",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q1428953",
+      "source": "wikidata"
+    }
+  ],
+  "pl:austin": [
+    {
+      "id": "Q16559",
+      "label": "Austin",
+      "description": "miasto w USA, stolica Teksasu",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Austin",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q16559",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q780944",
+      "label": "Austin",
+      "description": "city in, and the county seat of, Mower County, Minnesota, United States",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Austin_%28Minnesota%29",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q780944",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q780883",
+      "label": "Austin",
+      "description": "nazwisko",
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Austin_%28surname%29",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q780883",
+      "source": "wikidata"
+    }
+  ],
+  "pl:steve jobs": [
+    {
+      "id": "Q19837",
+      "label": "Steve Jobs",
+      "description": "amerykański przedsiębiorca; współzałożyciel Apple Inc. (1955–2011)",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Steve_Jobs",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q19837",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q18754959",
+      "label": "Steve Jobs",
+      "description": "amerykańsko-brytyjski film (reż. Danny Boyle; 2015)",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Steve_Jobs_%28film%29",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q18754959",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q625645",
+      "label": "Steve Jobs",
+      "description": "2011 authorized biography by Walter Isaacson",
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Steve_Jobs_%28book%29",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q625645",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q16460065",
+      "label": "Steve Jobs",
+      "description": "1st Simon & Schuster hardcover edition",
+      "wikipedia_url": null,
+      "wikidata_url": "https://www.wikidata.org/wiki/Q16460065",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q109983309",
+      "label": "Steve Jobs",
+      "description": "person identified in the Museu da Pessoa collection",
+      "wikipedia_url": null,
+      "wikidata_url": "https://www.wikidata.org/wiki/Q109983309",
+      "source": "wikidata"
+    }
+  ],
+  "pl:apple": [
+    {
+      "id": "Q312",
+      "label": "Apple Inc.",
+      "description": "amerykańskie przedsiębiorstwo informatyczne",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Apple_%28przedsi%C4%99biorstwo%29",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q312",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q89",
+      "label": "jabłko",
+      "description": "owoc jabłoni",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Jab%C5%82ko",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q89",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q104819",
+      "label": "jabłoń",
+      "description": "rodzaj rośliny",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Jab%C5%82o%C5%84",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q104819",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q213710",
+      "label": "Apple Records",
+      "description": "UK international record label; imprint of Apple Corps Ltd.",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Apple_Records",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q213710",
+      "source": "wikidata"
+    },
+    {
+      "id": "Q158657",
+      "label": "jabłoń domowa",
+      "description": "species of apple tree",
+      "wikipedia_url": "https://pl.wikipedia.org/wiki/Jab%C5%82o%C5%84_niska",
+      "wikidata_url": "https://www.wikidata.org/wiki/Q158657",
+      "source": "wikidata"
+    }
+  ]
+}

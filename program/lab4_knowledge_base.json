@@ -1,0 +1,82 @@
+{
+  "entities": [
+    {
+      "id": "Q19837",
+      "labels": {"pl": "Steve Jobs", "en": "Steve Jobs"},
+      "aliases": ["Steven Paul Jobs"],
+      "descriptions": {
+        "pl": "amerykański przedsiębiorca, współzałożyciel Apple",
+        "en": "American entrepreneur and co-founder of Apple"
+      },
+      "wikipedia": {
+        "pl": "https://pl.wikipedia.org/wiki/Steve_Jobs",
+        "en": "https://en.wikipedia.org/wiki/Steve_Jobs"
+      }
+    },
+    {
+      "id": "Q312",
+      "labels": {"pl": "Apple Inc.", "en": "Apple Inc."},
+      "aliases": ["Apple"],
+      "descriptions": {
+        "pl": "amerykańskie przedsiębiorstwo technologiczne produkujące komputery i telefony",
+        "en": "American technology company producing computers and smartphones"
+      },
+      "wikipedia": {
+        "pl": "https://pl.wikipedia.org/wiki/Apple_Inc.",
+        "en": "https://en.wikipedia.org/wiki/Apple_Inc."
+      }
+    },
+    {
+      "id": "Q89",
+      "labels": {"pl": "jabłko", "en": "apple"},
+      "aliases": ["Apple", "owoc jabłoni"],
+      "descriptions": {
+        "pl": "jadalny owoc jabłoni",
+        "en": "edible fruit produced by an apple tree"
+      },
+      "wikipedia": {
+        "pl": "https://pl.wikipedia.org/wiki/Jab%C5%82ko",
+        "en": "https://en.wikipedia.org/wiki/Apple"
+      }
+    },
+    {
+      "id": "Q317521",
+      "labels": {"pl": "Elon Musk", "en": "Elon Musk"},
+      "aliases": ["Elon Reeve Musk"],
+      "descriptions": {
+        "pl": "przedsiębiorca związany z Tesla, SpaceX i xAI",
+        "en": "entrepreneur associated with Tesla, SpaceX and xAI"
+      },
+      "wikipedia": {
+        "pl": "https://pl.wikipedia.org/wiki/Elon_Musk",
+        "en": "https://en.wikipedia.org/wiki/Elon_Musk"
+      }
+    },
+    {
+      "id": "Q478214",
+      "labels": {"pl": "Tesla, Inc.", "en": "Tesla, Inc."},
+      "aliases": ["Tesla"],
+      "descriptions": {
+        "pl": "amerykańskie przedsiębiorstwo produkujące samochody elektryczne",
+        "en": "American electric vehicle and clean energy company"
+      },
+      "wikipedia": {
+        "pl": "https://pl.wikipedia.org/wiki/Tesla_(przedsi%C4%99biorstwo)",
+        "en": "https://en.wikipedia.org/wiki/Tesla,_Inc."
+      }
+    },
+    {
+      "id": "Q16563",
+      "labels": {"pl": "Austin", "en": "Austin"},
+      "aliases": ["Austin, Texas"],
+      "descriptions": {
+        "pl": "stolica stanu Teksas w Stanach Zjednoczonych",
+        "en": "capital city of Texas in the United States"
+      },
+      "wikipedia": {
+        "pl": "https://pl.wikipedia.org/wiki/Austin",
+        "en": "https://en.wikipedia.org/wiki/Austin,_Texas"
+      }
+    }
+  ]
+}
