@@ -1,9 +1,14 @@
 from sklearn.datasets import fetch_20newsgroups
 import numpy as np
 import os
+import pandas as pd
 import tempfile
 
-SUPPORTED_DATASETS = ("20news_group", "imdb", "amazon", "ag_news")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CUSTOM_SENTIMENT_FILE = os.path.join(BASE_DIR, "sentiment_dataset.csv")
+
+SUPPORTED_DATASETS = ("20news_group", "imdb", "amazon", "ag_news", "custom")
+SENTIMENT_DATASETS = ("imdb", "amazon", "custom")
 SKLEARN_DATA_HOME = os.getenv(
     "SKLEARN_DATA",
     os.path.join(tempfile.gettempdir(), "wsei_nlp_sklearn_data")
@@ -31,6 +36,8 @@ class DatasetProvider:
             return self._load_amazon(sample_fraction, seed)
         elif name == "ag_news":
             return self._load_ag_news(sample_fraction, seed)
+        elif name == "custom":
+            return self._load_custom_sentiment(sample_fraction, seed)
         else:
             raise ValueError(
                 f"Nieznany zbiór danych: '{name}'. "
@@ -47,6 +54,17 @@ class DatasetProvider:
         rng = np.random.default_rng(seed)
         indices = rng.choice(len(X), sample_size, replace=False)
         return X[indices], y[indices]
+
+    def _sample_huggingface(self, dataset, sample_fraction: float, seed: int):
+        if not 0 < sample_fraction <= 1.0:
+            raise ValueError("sample_fraction musi być z zakresu (0, 1].")
+        if sample_fraction >= 1.0:
+            return dataset
+
+        sample_size = max(1, int(len(dataset) * sample_fraction))
+        rng = np.random.default_rng(seed)
+        indices = rng.choice(len(dataset), sample_size, replace=False)
+        return dataset.select(indices.tolist())
 
     # ------------------------------------------------------------------
     # 20 Newsgroups
@@ -80,11 +98,10 @@ class DatasetProvider:
             )
 
         ds = load_dataset("imdb", split="train+test")
+        ds = self._sample_huggingface(ds, sample_fraction, seed)
         X = np.array(ds["text"])
         y = np.array(ds["label"])
         target_names = ["negative", "positive"]
-
-        X, y = self._sample(X, y, sample_fraction, seed)
 
         print(f"Załadowano {len(X)} próbek z IMDB.")
         return X.tolist(), y.tolist(), target_names
@@ -103,11 +120,10 @@ class DatasetProvider:
 
         # amazon_polarity: label 0=negative, 1=positive; kolumna tekstu = 'content'
         ds = load_dataset("amazon_polarity", split="train")
+        ds = self._sample_huggingface(ds, sample_fraction, seed)
         X = np.array(ds["content"])
         y = np.array(ds["label"])
         target_names = ["negative", "positive"]
-
-        X, y = self._sample(X, y, sample_fraction, seed)
 
         print(f"Załadowano {len(X)} próbek z Amazon Reviews.")
         return X.tolist(), y.tolist(), target_names
@@ -137,3 +153,32 @@ class DatasetProvider:
 
         print(f"Załadowano {len(X)} próbek z AG News.")
         return X.tolist(), y.tolist(), list(target_names)
+
+    # ------------------------------------------------------------------
+    # Custom sentiment dataset
+    # ------------------------------------------------------------------
+    def _load_custom_sentiment(self, sample_fraction: float, seed: int):
+        if not os.path.exists(CUSTOM_SENTIMENT_FILE):
+            raise FileNotFoundError(
+                f"Brak pliku {CUSTOM_SENTIMENT_FILE}. Dodaj dane komendą /add_sentiment."
+            )
+
+        df = pd.read_csv(CUSTOM_SENTIMENT_FILE)
+        required_columns = {"text", "label"}
+        if not required_columns.issubset(df.columns):
+            raise ValueError("Custom dataset musi mieć kolumny: text,label.")
+
+        df = df.dropna(subset=["text", "label"])
+        df["text"] = df["text"].astype(str).str.strip()
+        df["label"] = df["label"].astype(str).str.strip().str.lower()
+        df = df[(df["text"] != "") & (df["label"] != "")]
+        if df.empty:
+            raise ValueError("Custom dataset jest pusty.")
+
+        X = df["text"].to_numpy()
+        y = df["label"].to_numpy()
+        X, y = self._sample(X, y, sample_fraction, seed)
+        target_names = ["negatywny", "neutralny", "pozytywny"]
+
+        print(f"Załadowano {len(X)} próbek z custom sentiment dataset.")
+        return X.tolist(), y.tolist(), target_names

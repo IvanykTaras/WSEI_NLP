@@ -1,0 +1,4 @@
+interface:
+  display_name: "WSEI NLP Labs"
+  short_description: "Implement WSEI NLP lab tasks consistently."
+  default_prompt: "Use this skill to analyze, implement, test, and document a WSEI NLP lab task in this repository."

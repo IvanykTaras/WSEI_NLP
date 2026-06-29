@@ -1,15 +1,26 @@
+import asyncio
 import logging
 import os
+import shlex
 import numpy as np
 import pandas as pd
 from typing import Sequence
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-from providers.dataset_provider import DatasetProvider, SUPPORTED_DATASETS
+from providers.dataset_provider import DatasetProvider, SENTIMENT_DATASETS, SUPPORTED_DATASETS
 from providers.embedding_provider import EmbeddingProvider, SUPPORTED_EMBEDDINGS
 from providers.classification_provider import ClassificationProvider, ALL_MODELS
 from providers.visualization_provider import VisualizationProvider
+from providers.lab3_visualization_provider import Lab3VisualizationProvider
+from providers.sentiment_provider import (
+    LAB3_RESULTS_FILE,
+    SENTIMENT_SAMPLE_FRACTIONS,
+    SUPPORTED_SENTIMENT_METHODS,
+    VALID_SENTIMENT_LABELS,
+    SentimentProvider,
+)
+from providers.sequence_model_provider import SEQUENCE_MODELS, SequenceModelProvider
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -22,6 +33,9 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 dataset_provider = DatasetProvider()
 classification_provider = ClassificationProvider()
 visualization_provider = VisualizationProvider()
+sequence_provider = SequenceModelProvider()
+sentiment_provider = SentimentProvider(dataset_provider=dataset_provider, sequence_provider=sequence_provider)
+lab3_visualization_provider = Lab3VisualizationProvider()
 
 # Seedy używane dla kolejnych uruchomień (run=1 → seed[0], run=2 → seed[0]+seed[1], itd.)
 SEEDS = [42, 1337, 2024]
@@ -29,6 +43,7 @@ DEFAULT_SAMPLE_FRACTION = 0.05
 
 CSV_FILE = os.path.join(BASE_DIR, "lab2results.csv")
 PLOTS_DIR = os.path.join(BASE_DIR, "lab2plots")
+LAB3_PLOTS_DIR = os.path.join(BASE_DIR, "lab3plots")
 
 
 # ---------------------------------------------------------------------------
@@ -42,6 +57,30 @@ def _parse_params(args: list) -> dict:
             key, value = part.split('=', 1)
             params[key.lower()] = value.lower()
     return params
+
+
+def _parse_params_preserve_case(args: list) -> dict:
+    try:
+        parts = shlex.split(" ".join(args))
+    except ValueError as exc:
+        raise ValueError("Niepoprawne cudzyslowy w komendzie.") from exc
+
+    params = {}
+    for part in parts:
+        if "=" in part:
+            key, value = part.split("=", 1)
+            params[key.lower()] = value
+    return params
+
+
+def _parse_two_quoted_args(args: list) -> tuple[str, str]:
+    try:
+        parts = shlex.split(" ".join(args))
+    except ValueError as exc:
+        raise ValueError("Niepoprawne cudzyslowy w komendzie.") from exc
+    if len(parts) != 2:
+        raise ValueError('Uzyj formatu: /add_sentiment "tekst" "etykieta".')
+    return parts[0], parts[1]
 
 
 def _format_supported(values: Sequence) -> str:
@@ -124,16 +163,23 @@ async def _send_photo_safe(update: Update, path: str, caption: str = "", parse_m
 
 async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
-        "🤖 *Bot NLP — Laboratorium 2*\n\n"
+        "🤖 *Bot NLP — Laboratorium 2 + 3*\n\n"
         "Dostępne komendy:\n"
-        "`/classify dataset=<nazwa> method=<model> gridsearch=<true/false> run=<n> embedding=<typ>`\n\n"
-        "*Datasety:* `20news_group`, `imdb`, `amazon`, `ag_news`\n"
+        "`/classify dataset=<nazwa> method=<model> gridsearch=<true/false> run=<n> embedding=<typ>`\n"
+        "`/sentiment method=<metoda> text=\"tekst\"`\n"
+        "`/train model=<simplernn|lstm|gru> dataset=<amazon|imdb|custom>`\n"
+        "`/compare dataset=<amazon|imdb|custom> methods=<lista>`\n"
+        "`/add_sentiment \"tekst\" \"etykieta\"`\n"
+        "`/models`\n\n"
+        "*Datasety Lab2:* `20news_group`, `imdb`, `amazon`, `ag_news`\n"
+        "*Datasety Lab3:* `amazon`, `imdb`, `custom`\n"
         "*Modele:* `nb`, `rf`, `mlp`, `logreg`, `all`\n"
         "*Embeddingi:* `bow`, `tfidf`, `word2vec`, `glove`\n\n"
         "*Przykłady:*\n"
         "`/classify dataset=20news_group method=all gridsearch=false run=1`\n"
-        "`/classify dataset=imdb method=logreg gridsearch=true run=2 embedding=tfidf`\n"
-        "`/classify dataset=ag_news method=logreg gridsearch=false run=3 embedding=glove`"
+        "`/sentiment method=rule text=\"To byl swietny film\"`\n"
+        "`/train model=simplernn dataset=custom`\n"
+        "`/compare dataset=custom methods=rule,nb,rf,textblob`"
     )
     await update.message.reply_text(help_text, parse_mode='Markdown')
 
@@ -409,6 +455,206 @@ async def _send_all_models_summary(
 
 
 # ---------------------------------------------------------------------------
+# Lab 3: sentyment, trening modeli sekwencyjnych, porównania
+# ---------------------------------------------------------------------------
+
+async def handle_sentiment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        params = _parse_params_preserve_case(context.args)
+        method = params.get("method", "").lower()
+        text = params.get("text", "")
+        dataset_name = params.get("dataset", "custom").lower()
+
+        if not method or not text:
+            await update.message.reply_text(
+                '❌ Uzyj: `/sentiment method=<metoda> text="tekst"`',
+                parse_mode='Markdown'
+            )
+            return
+        if dataset_name not in SENTIMENT_DATASETS:
+            raise ValueError(f"Dataset dla Lab3 musi byc jednym z: {_format_supported(SENTIMENT_DATASETS)}.")
+
+        if method == "stanza":
+            await update.message.reply_text(
+                "⏳ Ładuję angielski model Stanza. Pierwsza analiza może potrwać kilkadziesiąt sekund."
+            )
+        result = await asyncio.to_thread(
+            sentiment_provider.predict,
+            method,
+            text,
+            dataset_name,
+        )
+        score = result.get("score")
+        score_line = f"\n• Pewnosc/score: `{score:.4f}`" if isinstance(score, (int, float)) else ""
+        await update.message.reply_text(
+            f"✅ *Analiza sentymentu*\n\n"
+            f"• Metoda: `{result.get('method', method)}`\n"
+            f"• Dataset/model: `{dataset_name}`\n"
+            f"• Predykcja: `{result['label']}`"
+            f"{score_line}\n"
+            f"• Model: `{result.get('model_path', '-')}`",
+            parse_mode='Markdown'
+        )
+    except (ValueError, FileNotFoundError, ImportError, RuntimeError) as e:
+        await update.message.reply_text(f"❌ {e}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        await update.message.reply_text(f"❌ Nieoczekiwany błąd: {e}")
+
+
+async def handle_train(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        params = _parse_params_preserve_case(context.args)
+        model_name = params.get("model", "").lower()
+        dataset_name = params.get("dataset", "").lower()
+
+        if model_name not in SEQUENCE_MODELS:
+            raise ValueError(f"Model musi byc jednym z: {_format_supported(SEQUENCE_MODELS)}.")
+        if dataset_name not in SENTIMENT_DATASETS:
+            raise ValueError(f"Dataset musi byc jednym z: {_format_supported(SENTIMENT_DATASETS)}.")
+
+        await update.message.reply_text(
+            f"⏳ Rozpoczynam trening `{model_name}` na `{dataset_name}`. To moze potrwac kilka minut.",
+            parse_mode='Markdown'
+        )
+
+        sample_fraction = SENTIMENT_SAMPLE_FRACTIONS[dataset_name]
+        X, y, _ = await asyncio.to_thread(
+            sentiment_provider.load_sentiment_dataset,
+            dataset_name,
+            sample_fraction,
+            SEEDS[0],
+        )
+        await update.message.reply_text(
+            f"📚 Załadowano `{len(X)}` przykładów. Rozpoczynam trening...",
+            parse_mode='Markdown',
+        )
+        result = await asyncio.to_thread(
+            sequence_provider.train,
+            model_name,
+            dataset_name,
+            X,
+            y,
+        )
+        history_path = lab3_visualization_provider.plot_training_history(
+            result.history, model_name, dataset_name
+        )
+        lab3_visualization_provider.plot_wordcloud_per_label(X, y, dataset_name)
+        lab3_visualization_provider.plot_class_distribution(y, dataset_name)
+
+        response = (
+            f"✅ *Trening zakonczony*\n\n"
+            f"• Model: `{model_name}`\n"
+            f"• Dataset: `{dataset_name}`\n"
+            f"• Accuracy testowe: `{result.test_accuracy:.4f}`\n"
+            f"• Epoki: `{result.epochs_run}`\n"
+            f"• Czas: `{result.duration_seconds:.1f}s`\n\n"
+            f"💾 Model: `{os.path.relpath(result.model_path, BASE_DIR)}`\n"
+            f"💾 Tokenizer: `{os.path.relpath(result.tokenizer_path, BASE_DIR)}`\n"
+            f"💾 Encoder: `{os.path.relpath(result.label_encoder_path, BASE_DIR)}`"
+        )
+        await _send_photo_safe(update, history_path, caption=response, parse_mode='Markdown')
+    except (ValueError, ImportError) as e:
+        await update.message.reply_text(f"❌ {e}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        await update.message.reply_text(f"❌ Nieoczekiwany błąd: {e}")
+
+
+async def handle_compare(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        params = _parse_params_preserve_case(context.args)
+        dataset_name = params.get("dataset", "").lower()
+        methods_value = params.get("methods", "")
+        if dataset_name not in SENTIMENT_DATASETS:
+            raise ValueError(f"Dataset musi byc jednym z: {_format_supported(SENTIMENT_DATASETS)}.")
+        if not methods_value:
+            raise ValueError("Podaj methods, np. methods=rule,nb,rf,textblob.")
+
+        methods = [method.strip().lower() for method in methods_value.split(",")]
+        await update.message.reply_text(
+            f"⏳ Porownuje metody `{', '.join(methods)}` na `{dataset_name}`...",
+            parse_mode='Markdown'
+        )
+
+        sample_fraction = SENTIMENT_SAMPLE_FRACTIONS[dataset_name]
+        comparison = sentiment_provider.compare(
+            dataset_name=dataset_name,
+            methods=methods,
+            sample_fraction=sample_fraction,
+            seed=SEEDS[0],
+        )
+        results = comparison["results"]
+        compare_path = lab3_visualization_provider.plot_compare_methods(results, dataset_name)
+        for method, y_pred in comparison["predictions"].items():
+            lab3_visualization_provider.plot_confusion_matrix(
+                comparison["y_test"], y_pred, method, dataset_name
+            )
+        lab3_visualization_provider.plot_wordcloud_per_label(comparison["X"], comparison["y"], dataset_name)
+
+        lines = [
+            "✅ *Porownanie zakonczone*\n\n",
+            f"💾 Wyniki zapisano w `{os.path.relpath(LAB3_RESULTS_FILE, BASE_DIR)}`\n\n",
+            "📊 *Macro F1:*\n",
+        ]
+        for row in results:
+            lines.append(
+                f"• `{row['method']}` — Acc `{row['accuracy']:.4f}`, F1 `{row['macro_f1']:.4f}`\n"
+            )
+
+        if compare_path:
+            await _send_photo_safe(update, compare_path, caption="".join(lines), parse_mode='Markdown')
+        else:
+            await update.message.reply_text("".join(lines), parse_mode='Markdown')
+    except (ValueError, FileNotFoundError, ImportError, RuntimeError) as e:
+        await update.message.reply_text(f"❌ {e}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        await update.message.reply_text(f"❌ Nieoczekiwany błąd: {e}")
+
+
+async def handle_add_sentiment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        text, label = _parse_two_quoted_args(context.args)
+        total = sentiment_provider.add_custom_example(text, label)
+        await update.message.reply_text(
+            f"✅ Dodano rekord do `sentiment_dataset.csv`.\n"
+            f"• Etykieta: `{label.lower()}`\n"
+            f"• Liczba rekordow: `{total}`",
+            parse_mode='Markdown'
+        )
+    except ValueError as e:
+        await update.message.reply_text(f"❌ {e}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        await update.message.reply_text(f"❌ Nieoczekiwany błąd: {e}")
+
+
+async def handle_models(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = sequence_provider.list_models()
+    if not rows:
+        await update.message.reply_text(
+            "ℹ️ Brak zapisanych modeli w `models/`. Uzyj np. `/train model=simplernn dataset=custom`.",
+            parse_mode='Markdown'
+        )
+        return
+
+    lines = ["📦 *Zapisane modele Lab3*\n\n"]
+    for row in rows:
+        tokenizer = "tak" if row["has_tokenizer"] else "nie"
+        encoder = "tak" if row["has_label_encoder"] else "nie"
+        rel_path = os.path.relpath(row["model_path"], BASE_DIR)
+        lines.append(
+            f"• `{row['model']}` / `{row['dataset']}` — model `{rel_path}`, tokenizer `{tokenizer}`, encoder `{encoder}`\n"
+        )
+    await update.message.reply_text("".join(lines), parse_mode='Markdown')
+
+
+# ---------------------------------------------------------------------------
 # Uruchomienie bota
 # ---------------------------------------------------------------------------
 
@@ -418,9 +664,14 @@ if __name__ == '__main__':
             "Brak zmiennej środowiskowej BOT_TOKEN. "
             "Ustaw ją przed uruchomieniem, np. `export BOT_TOKEN=...`."
         )
-    print("Uruchamianie bota NLP (Lab 2)...")
+    print("Uruchamianie bota NLP (Lab 2 + Lab 3)...")
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", send_welcome))
     app.add_handler(CommandHandler("help", send_welcome))
     app.add_handler(CommandHandler("classify", handle_classify))
+    app.add_handler(CommandHandler("sentiment", handle_sentiment))
+    app.add_handler(CommandHandler("train", handle_train))
+    app.add_handler(CommandHandler("compare", handle_compare))
+    app.add_handler(CommandHandler("add_sentiment", handle_add_sentiment))
+    app.add_handler(CommandHandler("models", handle_models))
     app.run_polling()

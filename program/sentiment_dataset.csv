@@ -1,0 +1,92 @@
+text,label
+"Film byl piekny, wzruszajacy i zostal ze mna na dlugo",pozytywny
+"Aktorzy zagrali swietnie, a historia naprawde mnie poruszyla",pozytywny
+"To najlepszy serial, jaki ogladalem w tym roku",pozytywny
+"Muzyka i zdjecia byly zachwycajace",pozytywny
+"Seans byl bardzo przyjemny i zdecydowanie go polecam",pozytywny
+"Produkt dziala bez zarzutu i spelnia wszystkie oczekiwania",pozytywny
+"Jakosc wykonania jest bardzo dobra, jestem zadowolony",pozytywny
+"To byl udany zakup w rozsądnej cenie",pozytywny
+"Sprzet jest szybki, wygodny i solidny",pozytywny
+"Opakowanie bylo staranne, a produkt zgodny z opisem",pozytywny
+"Restauracja zaskoczyla mnie pysznym jedzeniem i mila obsluga",pozytywny
+"Kolacja byla swietna, wszystko smakowalo znakomicie",pozytywny
+"Kelner byl pomocny, a atmosfera bardzo przyjazna",pozytywny
+"Danie bylo swieze, cieple i dobrze doprawione",pozytywny
+"Chetnie wroce do tego miejsca ponownie",pozytywny
+"Aplikacja dziala plynnie i ma intuicyjny interfejs",pozytywny
+"Nowa wersja programu jest stabilna i wygodna",pozytywny
+"Funkcje sa przydatne, a konfiguracja prosta",pozytywny
+"System uruchamia sie szybko i nie sprawia problemow",pozytywny
+"Aktualizacja wyraznie poprawila komfort korzystania",pozytywny
+"Obsluga klienta odpowiedziala szybko i konkretnie",pozytywny
+"Konsultant byl uprzejmy, cierpliwy i pomocny",pozytywny
+"Reklamacja zostala rozwiazana sprawnie i uczciwie",pozytywny
+"Dostawa przyszla przed terminem i bez uszkodzen",pozytywny
+"Kurier byl punktualny, a paczka dobrze zabezpieczona",pozytywny
+"Kurs byl ciekawy, praktyczny i dobrze prowadzony",pozytywny
+"Materialy szkoleniowe byly jasne i bardzo pomocne",pozytywny
+"Prowadzacy tlumaczyl spokojnie i zrozumiale",pozytywny
+"Usluga byla wykonana profesjonalnie i terminowo",pozytywny
+"Jestem bardzo zadowolony z efektu koncowego",pozytywny
+"Film byl poprawny, ale nie wywolal silnych emocji",neutralny
+"Historia byla przewidywalna, chociaz ogladalo sie ja bez problemu",neutralny
+"Seans byl przecietny i raczej szybko o nim zapomne",neutralny
+"Aktorzy zagrali w porzadku, bez wiekszych zaskoczen",neutralny
+"Film mial kilka dobrych scen, ale calosc byla zwyczajna",neutralny
+"Produkt jest zgodny z opisem i dziala standardowo",neutralny
+"Jakosc jest akceptowalna jak na te cene",neutralny
+"Sprzet spelnia podstawowe funkcje, nic wiecej",neutralny
+"Opakowanie bylo normalne, bez szczegolnych zalet",neutralny
+"Zakup byl neutralny, ani dobry, ani zly",neutralny
+"Restauracja byla w porzadku, ale niczym sie nie wyroznila",neutralny
+"Jedzenie bylo poprawne, lecz bez wyraznego smaku",neutralny
+"Obsluga wykonala swoje zadanie standardowo",neutralny
+"Czas oczekiwania byl typowy dla takiego miejsca",neutralny
+"Lokal jest zwyczajny i trudno go jednoznacznie ocenic",neutralny
+"Aplikacja dziala, ale interfejs moglby byc lepszy",neutralny
+"Program ma potrzebne funkcje, jednak nie zachwyca",neutralny
+"Aktualizacja nie zmienila zbyt wiele",neutralny
+"System czasem dziala wolniej, ale nadal da sie z niego korzystac",neutralny
+"Konfiguracja byla przecietna i zajela troche czasu",neutralny
+"Obsluga odpowiedziala po kilku godzinach, bez dodatkowych wyjasnien",neutralny
+"Konsultant przekazal podstawowe informacje",neutralny
+"Reklamacja zostala przyjeta, czekam na dalszy kontakt",neutralny
+"Dostawa dotarla w deklarowanym terminie",neutralny
+"Paczka byla cala, ale zabezpieczenie bylo zwyczajne",neutralny
+"Kurs zawieral podstawowe informacje i kilka przykladow",neutralny
+"Materialy byly poprawne, choc miejscami zbyt ogolne",neutralny
+"Prowadzacy omawial temat w spokojnym tempie",neutralny
+"Usluga zostala wykonana zgodnie z umowa",neutralny
+"Efekt jest akceptowalny, ale bez wiekszego wrazenia",neutralny
+"Film byl nudny, chaotyczny i bardzo mnie rozczarowal",negatywny
+"To najgorszy seans, na jakim bylem od dawna",negatywny
+"Aktorzy grali sztucznie, a dialogi byly fatalne",negatywny
+"Historia byla bez sensu i marnowala czas widza",negatywny
+"Nie polecam tego filmu nikomu",negatywny
+"Produkt przyszedl uszkodzony i nie dziala poprawnie",negatywny
+"Jakosc wykonania jest slaba i widac tanie materialy",negatywny
+"To byl bardzo nieudany zakup",negatywny
+"Sprzet zawiesza sie, traci dane i jest zawodny",negatywny
+"Opis obiecywal duzo wiecej niz produkt faktycznie oferuje",negatywny
+"Jedzenie bylo zimne, niesmaczne i podane z opoznieniem",negatywny
+"Restauracja zawiodla mnie pod kazdym wzgledem",negatywny
+"Kelner byl niemily i ignorowal nasze prosby",negatywny
+"Danie bylo przesolone, suche i nie warte ceny",negatywny
+"Nie wroce do tego lokalu",negatywny
+"Aplikacja ciagle sie zawiesza i utrudnia prace",negatywny
+"Nowa wersja programu wprowadzila wiecej bledow niz poprawek",negatywny
+"Interfejs jest mylacy, wolny i frustrujacy",negatywny
+"System dziala niestabilnie i czesto sie zatrzymuje",negatywny
+"Aktualizacja zepsula funkcje, z ktorych korzystalem codziennie",negatywny
+"Obsluga klienta byla opryskliwa i nie pomogla w problemie",negatywny
+"Konsultant zignorowal moje pytania",negatywny
+"Reklamacja zostala odrzucona bez sensownego wyjasnienia",negatywny
+"Dostawa spoznila sie o kilka dni",negatywny
+"Paczka przyszla pognieciona, a zawartosc byla uszkodzona",negatywny
+"Kurs byl nudny, chaotyczny i malo praktyczny",negatywny
+"Materialy szkoleniowe byly nieaktualne i pelne bledow",negatywny
+"Prowadzacy tlumaczyl niezrozumiale i pomijal wazne tematy",negatywny
+"Usluga zostala wykonana po terminie i niedbale",negatywny
+"Jestem bardzo rozczarowany efektem koncowym",negatywny
+"Obsługa była poprawna, ale bez zachwytu",neutralny

@@ -1,4 +1,4 @@
-# NLP Bot — Laboratorium 2
+# NLP Bot — Laboratorium 2 i 3
 
 ## 📁 Struktura projektu
 
@@ -259,17 +259,66 @@ Klasyfikacja kategorii artykułów — AG News (4 klasy: World/Sports/Business/S
 /classify dataset=ag_news method=nb gridsearch=false run=1 embedding=tfidf
 ```
 
-```
-/classify dataset=ag_news method=all gridsearch=false run=1 embedding=tfidf
-```
-
-Recenzje produktów Amazon (sentiment, duży dataset):
-
-```
-/classify dataset=amazon method=nb gridsearch=false run=1 embedding=bow
-```
-
 ---
+
+## Laboratorium 3 — analiza sentymentu
+
+Lab3 rozszerza bota o analizę sentymentu pojedynczych tekstów, trenowanie modeli sekwencyjnych i porównywanie metod na datasetach `amazon`, `imdb` oraz `custom`. Dataset `custom` jest polski i zawiera 90 przykładów: po 30 dla klas `pozytywny`, `neutralny`, `negatywny`.
+
+### Komendy Lab3
+
+```
+/sentiment method=<rule|nb|rf|transformer|textblob|stanza|simplernn|lstm|gru> text="tekst"
+/train model=<simplernn|lstm|gru> dataset=<amazon|imdb|custom>
+/compare dataset=<amazon|imdb|custom> methods=<lista_metod>
+/add_sentiment "tekst" "etykieta"
+/models
+/help
+```
+
+### Datasety i artefakty
+
+| Plik / katalog | Opis |
+|----------------|------|
+| `sentiment_dataset.csv` | Własny polski dataset dla `custom`, format `text,label` |
+| `models/` | Modele `.h5`, tokenizery `.pkl` i encodery etykiet `.pkl` |
+| `lab3plots/` | Historia uczenia, macierze pomyłek, wordcloud, porównania metod |
+| `lab3results.csv` | Wyniki `/compare`: dataset, method, accuracy, precision, recall, macro_f1, model_path |
+
+Etykiety w datasecie `custom`: `pozytywny`, `neutralny`, `negatywny`. Komenda `/add_sentiment` zapisuje wielozdaniowy tekst jako jeden rekord.
+
+### Metody sentymentu
+
+| Metoda | Opis |
+|--------|------|
+| `rule` | Rozszerzone reguły słów kluczowych dla języka polskiego |
+| `nb` | Multinomial Naive Bayes z TF-IDF, trenowany i cache'owany dla wybranego datasetu |
+| `rf` | Random Forest z TF-IDF, trenowany i cache'owany dla wybranego datasetu |
+| `transformer` | Wielojęzyczny model `nlptown/bert-base-multilingual-uncased-sentiment` |
+| `textblob` | Baseline TextBlob; najlepszy dla języka angielskiego |
+| `stanza` | Opcjonalny baseline Stanza; sentiment najlepiej działa dla tekstów angielskich |
+| `simplernn` | Zapisany model Keras `.h5` |
+| `lstm` | Zapisany model Keras `.h5` |
+| `gru` | Zapisany model Keras `.h5` |
+
+Dla metod `simplernn`, `lstm` i `gru` trzeba najpierw uruchomić `/train`, ponieważ `/sentiment` wczytuje zapisany model z pliku zamiast trenować go od nowa.
+
+### Parametry modeli sekwencyjnych
+
+Domyślne parametry są dobrane tak, żeby dało się szybko pokazać działanie na laboratorium:
+
+| Parametr | Wartość |
+|----------|---------|
+| `max_words` | 5000 |
+| `max_len` | 100 |
+| `embedding_dim` | 64 |
+| `epochs` | 5 |
+| `batch_size` | 16 dla `custom`, 32 dla większych datasetów |
+| `early_stopping` | `patience=2`, `restore_best_weights=True` |
+
+Do szybkiego treningu bot używa całego datasetu `custom`, 5 000 przykładów z IMDB oraz 10 000 przykładów z Amazon. Ograniczenie próbki zapobiega wielogodzinnym treningom modeli GRU/LSTM na pełnych datasetach.
+
+Do eksperymentów warto porównać `max_len` z przedziału 50-200 oraz `embedding_dim` 50-100. Dłuższe sekwencje mogą poprawić wyniki na recenzjach IMDB/Amazon, ale zwiększają czas treningu.
 
 ## ⚠️ Uwagi wydajnościowe
 
@@ -370,4 +419,106 @@ Test blednej kombinacji, powinien zwrocic czytelny blad:
 
 ```
 /classify dataset=20news_group method=nb gridsearch=false run=1 embedding=glove
+```
+
+---
+
+## Lab3 testy
+
+Sprawdzenie dostępnych modeli:
+
+```
+/models
+```
+
+Dodanie własnego przykładu do polskiego datasetu `custom`:
+
+```
+/add_sentiment "Obsługa była poprawna, ale bez zachwytu" "neutralny"
+```
+
+Podstawowe metody sentymentu:
+
+```
+/sentiment method=rule dataset=custom text="To był świetny film"
+```
+
+```
+/sentiment method=nb dataset=custom text="Produkt jest fatalny i bardzo słaby"
+```
+
+```
+/sentiment method=rf dataset=custom text="Bardzo polecam ten zakup"
+```
+
+Model Transformer dla polskiego tekstu:
+
+```
+/sentiment method=transformer dataset=custom text="Obsługa była szybka i bardzo pomocna"
+```
+
+Trening i predykcja modelu SimpleRNN:
+
+```
+/train model=simplernn dataset=custom
+```
+
+```
+/sentiment method=simplernn dataset=custom text="Produkt jest fatalny"
+```
+
+Porównanie podstawowych metod:
+
+```
+/compare dataset=custom methods=rule,nb,rf,transformer
+```
+
+Porównanie metod razem z wytrenowanym SimpleRNN:
+
+```
+/compare dataset=custom methods=rule,nb,rf,transformer,simplernn
+```
+
+Opcjonalne metody dla tekstów angielskich:
+
+Przed pierwszym użyciem Stanza pobierz angielski model sentymentu w terminalu:
+
+```bash
+python3 -c "import stanza; stanza.download('en', processors='tokenize,sentiment')"
+```
+
+```
+/sentiment method=textblob text="This product is excellent"
+```
+
+```
+/sentiment method=stanza text="The movie was surprisingly good"
+```
+
+Opcjonalny trening pozostałych modeli sekwencyjnych:
+
+```
+/train model=lstm dataset=imdb
+```
+
+```
+/train model=gru dataset=amazon
+```
+
+Test błędnej etykiety, powinien zwrócić czytelny błąd:
+
+```
+/add_sentiment "Ten tekst ma błędną etykietę" "super"
+```
+
+Test nieznanej metody, powinien zwrócić czytelny błąd:
+
+```
+/sentiment method=unknown dataset=custom text="Test nieznanej metody"
+```
+
+Test brakującego modelu, powinien zwrócić informację o wymaganym treningu:
+
+```
+/sentiment method=lstm dataset=custom text="Ten model nie był jeszcze trenowany"
 ```
