@@ -7,7 +7,7 @@ import pandas as pd
 import requests
 from typing import Sequence
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
 from providers.dataset_provider import DatasetProvider, SENTIMENT_DATASETS, SUPPORTED_DATASETS
 from providers.embedding_provider import EmbeddingProvider, SUPPORTED_EMBEDDINGS
@@ -33,6 +33,8 @@ from providers.translation_provider import (
     SUPPORTED_TRANSLATION_LANGUAGES,
     TranslationProvider,
 )
+from providers.lab5_tools_provider import Lab5ToolsProvider
+from providers.tool_calling_provider import ToolCallingProvider
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -52,6 +54,8 @@ entity_provider = EntityProvider()
 translation_provider = TranslationProvider()
 summarization_provider = SummarizationProvider()
 lab4_artifact_provider = Lab4ArtifactProvider()
+lab5_tools_provider = Lab5ToolsProvider()
+tool_calling_provider = ToolCallingProvider(tools_provider=lab5_tools_provider)
 
 # Seedy używane dla kolejnych uruchomień (run=1 → seed[0], run=2 → seed[0]+seed[1], itd.)
 SEEDS = [42, 1337, 2024]
@@ -199,7 +203,7 @@ def _artifact_relative_path(path: str) -> str:
 
 async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
-        "🤖 *Bot NLP — Laboratorium 2 + 3 + 4*\n\n"
+        "🤖 *Bot NLP — Laboratorium 2 + 3 + 4 + 5*\n\n"
         "Dostępne komendy:\n"
         "`/classify dataset=<nazwa> method=<model> gridsearch=<true/false> run=<n> embedding=<typ>`\n"
         "`/sentiment method=<metoda> text=\"tekst\"`\n"
@@ -215,6 +219,9 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "`/summarize text=\"tekst\" summary_type=<typ> length=<długość>`\n"
         "`/analyze_entities text=\"tekst\" link=<true|false>`\n"
         "`/language_detect text=\"tekst\"`\n\n"
+        "*Komenda Lab5 — automatyczny wybór narzędzi:*\n"
+        "`/agent <pytanie>`\n"
+        "Możesz też wysłać zdjęcie z podpisem `/agent <pytanie>`.\n\n"
         "*Datasety Lab2:* `20news_group`, `imdb`, `amazon`, `ag_news`\n"
         "*Datasety Lab3:* `amazon`, `imdb`, `custom`\n"
         "*Modele:* `nb`, `rf`, `mlp`, `logreg`, `all`\n"
@@ -225,7 +232,8 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "`/train model=simplernn dataset=custom`\n"
         "`/compare dataset=custom methods=rule,nb,rf,textblob`\n"
         "`/ner method=spacy text=\"Steve Jobs założył Apple\"`\n"
-        "`/translate text=\"Good morning\" target_lang=pl`"
+        "`/translate text=\"Good morning\" target_lang=pl`\n"
+        "`/agent Porównaj pogodę w Warszawie i Paryżu`"
     )
     await update.message.reply_text(help_text, parse_mode='Markdown')
 
@@ -941,6 +949,56 @@ async def handle_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------------------------------------------------------------------
+# Lab 5: agent Ollama z automatycznym Tool Calling
+# ---------------------------------------------------------------------------
+
+async def _run_agent_and_reply(update: Update, prompt: str, image_path: str = None):
+    try:
+        if not prompt and not image_path:
+            raise ValueError(
+                "Użyj `/agent <pytanie>` albo wyślij zdjęcie z podpisem `/agent <pytanie>`."
+            )
+        await update.message.reply_text(
+            "⏳ Agent analizuje pytanie i dobiera potrzebne narzędzia..."
+        )
+        result = await asyncio.to_thread(tool_calling_provider.run, prompt, image_path)
+        used_tools = [event["name"] for event in result.tool_calls]
+        tools_line = ", ".join(used_tools) if used_tools else "brak"
+        response = (
+            f"🤖 Odpowiedź agenta\n\n{result.answer}\n\n"
+            f"Narzędzia: {tools_line}\n"
+            f"Rundy: {result.rounds}, czas: {result.duration_seconds:.2f}s\n"
+            f"Historia: {_artifact_relative_path(result.history_path)}"
+        )
+        await _reply_long_text(update, response)
+    except (ValueError, FileNotFoundError, RuntimeError) as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_agent(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    prompt = " ".join(context.args).strip()
+    await _run_agent_and_reply(update, prompt)
+
+
+async def handle_agent_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    caption = (update.message.caption or "").strip()
+    command_and_prompt = caption.split(maxsplit=1)
+    prompt = command_and_prompt[1].strip() if len(command_and_prompt) == 2 else ""
+    photo = update.message.photo[-1]
+    os.makedirs(lab5_tools_provider.uploads_dir, exist_ok=True)
+    image_path = os.path.join(
+        lab5_tools_provider.uploads_dir, f"{photo.file_unique_id}.jpg"
+    )
+    try:
+        telegram_file = await context.bot.get_file(photo.file_id)
+        await telegram_file.download_to_drive(custom_path=image_path)
+    except Exception as exc:
+        await update.message.reply_text(f"❌ Nie udało się pobrać zdjęcia: {exc}")
+        return
+    await _run_agent_and_reply(update, prompt, image_path)
+
+
+# ---------------------------------------------------------------------------
 # Uruchomienie bota
 # ---------------------------------------------------------------------------
 
@@ -950,7 +1008,7 @@ if __name__ == '__main__':
             "Brak zmiennej środowiskowej BOT_TOKEN. "
             "Ustaw ją przed uruchomieniem, np. `export BOT_TOKEN=...`."
         )
-    print("Uruchamianie bota NLP (Lab 2 + Lab 3 + Lab 4)...")
+    print("Uruchamianie bota NLP (Lab 2 + Lab 3 + Lab 4 + Lab 5)...")
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", send_welcome))
     app.add_handler(CommandHandler("help", send_welcome))
@@ -967,4 +1025,9 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("language_detect", handle_language_detect))
     app.add_handler(CommandHandler("translate", handle_translate))
     app.add_handler(CommandHandler("summarize", handle_summarize))
+    app.add_handler(CommandHandler("agent", handle_agent))
+    app.add_handler(MessageHandler(
+        filters.PHOTO & filters.CaptionRegex(r"^/agent(?:@\w+)?(?:\s|$)"),
+        handle_agent_photo,
+    ))
     app.run_polling()

@@ -667,3 +667,93 @@ Test brakującego promptu custom — oczekiwany czytelny błąd:
 ```
 /summarize text="Przykładowy tekst" summary_type=custom length=short
 ```
+
+---
+
+## Lab5 testy
+
+Lab5 dodaje jedną komendę `/agent`, w której lokalny Qwen sam wybiera narzędzia:
+Wikipedia, pogodę Open-Meteo, kalkulator, lokalną bazę Lab4 albo analizę obrazu przez
+model Vision. Historia wraz z argumentami i wynikami narzędzi jest zapisywana w
+`program/lab5results/tool_history.jsonl`.
+
+Przed uruchomieniem sprawdź zależności, usługę Ollama i jawnie pobierz oba modele.
+Bot nie pobiera modeli automatycznie:
+
+```bash
+python3 -m pip install -r program/requirements.txt
+ollama serve
+ollama pull qwen3:1.7b
+ollama pull gemma4:latest
+export BOT_TOKEN="token_bota"
+export OLLAMA_BASE_URL="http://localhost:11434"
+export OLLAMA_TOOL_MODEL="qwen3:1.7b"
+export OLLAMA_VISION_MODEL="gemma4:latest"
+python3 program/main.py
+```
+
+Zwykła rozmowa — oczekiwane `Narzędzia: brak`:
+
+```
+/agent Cześć! Napisz jedno krótkie zdanie o NLP.
+```
+
+Kalkulator — oczekiwane użycie `simple_calculator` i wynik `391`:
+
+```
+/agent Ile to 17 razy 23?
+```
+
+Lokalna baza wiedzy — oczekiwane użycie `local_knowledge` i informacja o Steve Jobsie:
+
+```
+/agent Co lokalna baza wiedzy mówi o Steve Jobsie?
+```
+
+Aktualna pogoda — oczekiwane użycie `get_weather`:
+
+```
+/agent Jaka jest teraz pogoda w Warszawie?
+```
+
+Porównanie miast — oczekiwane dwa wywołania `get_weather` i odpowiedź porównawcza:
+
+```
+/agent Porównaj aktualną pogodę w Warszawie i Paryżu.
+```
+
+Aktualne informacje z internetu — oczekiwane użycie `web_search` i podanie źródła:
+
+```
+/agent Wyszukaj w internecie, kto jest CEO Tesli.
+```
+
+Scenariusz wieloetapowy — oczekiwane `get_weather` oraz `web_search`:
+
+```
+/agent Czy aktualna pogoda w Warszawie jest typowa dla czerwca? Porównaj ją z informacjami z internetu.
+```
+
+Vision — wyślij zdjęcie do bota z poniższym podpisem; oczekiwane użycie `analyze_image`:
+
+```
+/agent Co znajduje się na tym obrazie?
+```
+
+Pusta komenda bez zdjęcia — oczekiwany czytelny błąd z instrukcją użycia:
+
+```
+/agent
+```
+
+Błędne działanie matematyczne — agent powinien opisać błąd narzędzia, bez awarii bota:
+
+```
+/agent Oblicz 10 / 0 przy użyciu kalkulatora.
+```
+
+Nieznane miasto — oczekiwany komunikat o braku miasta, bez awarii bota:
+
+```
+/agent Jaka jest pogoda w mieście NieistniejąceMiastoXYZ?
+```
