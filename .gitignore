@@ -209,3 +209,7 @@ __marimo__/
 # Generated Lab5 conversations and Telegram uploads
 program/lab5results/
 program/lab5uploads/
+
+# Generated Lab6 moderation data and feedback model
+program/lab6results/
+program/node_modules/
