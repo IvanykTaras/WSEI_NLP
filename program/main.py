@@ -35,6 +35,7 @@ from providers.translation_provider import (
 )
 from providers.lab5_tools_provider import Lab5ToolsProvider
 from providers.tool_calling_provider import ToolCallingProvider
+from providers.moderation_provider import ModerationProvider, VALID_ACTIONS
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -56,6 +57,10 @@ summarization_provider = SummarizationProvider()
 lab4_artifact_provider = Lab4ArtifactProvider()
 lab5_tools_provider = Lab5ToolsProvider()
 tool_calling_provider = ToolCallingProvider(tools_provider=lab5_tools_provider)
+moderation_provider = ModerationProvider(
+    sentiment_provider=sentiment_provider,
+    entity_provider=entity_provider,
+)
 
 # Seedy używane dla kolejnych uruchomień (run=1 → seed[0], run=2 → seed[0]+seed[1], itd.)
 SEEDS = [42, 1337, 2024]
@@ -101,6 +106,16 @@ def _parse_two_quoted_args(args: list) -> tuple[str, str]:
     if len(parts) != 2:
         raise ValueError('Uzyj formatu: /add_sentiment "tekst" "etykieta".')
     return parts[0], parts[1]
+
+
+def _parse_quoted_args(args: list, expected: int, usage: str) -> list:
+    try:
+        parts = shlex.split(" ".join(args))
+    except ValueError as exc:
+        raise ValueError("Niepoprawne cudzysłowy w komendzie.") from exc
+    if len(parts) != expected:
+        raise ValueError(f"Użyj: {usage}")
+    return parts
 
 
 def _format_supported(values: Sequence) -> str:
@@ -203,7 +218,7 @@ def _artifact_relative_path(path: str) -> str:
 
 async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
-        "🤖 *Bot NLP — Laboratorium 2 + 3 + 4 + 5*\n\n"
+        "🤖 *Bot NLP — Laboratorium 2 + 3 + 4 + 5 + 6*\n\n"
         "Dostępne komendy:\n"
         "`/classify dataset=<nazwa> method=<model> gridsearch=<true/false> run=<n> embedding=<typ>`\n"
         "`/sentiment method=<metoda> text=\"tekst\"`\n"
@@ -222,6 +237,13 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "*Komenda Lab5 — automatyczny wybór narzędzi:*\n"
         "`/agent <pytanie>`\n"
         "Możesz też wysłać zdjęcie z podpisem `/agent <pytanie>`.\n\n"
+        "*Komendy Lab6 — moderacja treści:*\n"
+        "`/moderate \"tekst\"`\n"
+        "`/mod_policy_check \"tekst\"`\n"
+        "`/mod_status <content_id>`  `/mod_history <user_id>`\n"
+        "`/mod_analytics`  `/mod_watchlist`\n"
+        "`/mod_add_feedback <content_id> \"komentarz\" \"decyzja\"`\n"
+        "`/mod_train_on_feedback`  `/mod_help`\n\n"
         "*Datasety Lab2:* `20news_group`, `imdb`, `amazon`, `ag_news`\n"
         "*Datasety Lab3:* `amazon`, `imdb`, `custom`\n"
         "*Modele:* `nb`, `rf`, `mlp`, `logreg`, `all`\n"
@@ -999,6 +1021,199 @@ async def handle_agent_photo(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 # ---------------------------------------------------------------------------
+# Lab 6: lokalna moderacja treści i feedback loop
+# ---------------------------------------------------------------------------
+
+def _format_moderation_result(result: dict, policy_check: bool = False) -> str:
+    icon = {"APPROVE": "✅", "REJECT": "❌", "FLAG_FOR_REVIEW": "⏳"}[result["action"]]
+    bielik = result["bielik"]
+    qwen = result["qwen"]
+    pii = result["pii"]
+    sentiment = result["sentiment"]
+    entities = result["entities"]
+    entity_parts = []
+    for key in (
+        "usernames_mentioned", "urls", "emails", "phone_numbers",
+        "organizations", "locations", "persons",
+    ):
+        if entities.get(key):
+            entity_parts.append(f"{key}={', '.join(entities[key])}")
+    context_parts = [
+        f"{row['category']}:{','.join(row['mentions'])}"
+        for row in entities.get("contextual_targets", [])
+    ]
+    similar = result.get("similar_cases", [])
+    similar_line = ", ".join(
+        f"#{row['content_id']} ({row['similarity']:.2f})" for row in similar[:3]
+    ) or "brak"
+    tools_line = ", ".join(
+        item.split()[0] for item in result.get("executed_tools", [])
+    ) or "brak (policy check)"
+    prefix = "POLICY CHECK (bez zapisu)" if policy_check else f"MODERACJA #{result['content_id']}"
+    return (
+        f"{icon} {prefix}\n"
+        f"Decyzja: {result['action']}\n"
+        f"Użytkownik: {result['user_id']}\n"
+        f"Powód: {result['reason']}\n"
+        f"Consensus: {result['consensus']}\n"
+        f"PII: {'tak' if pii['has_pii'] else 'nie'} ({pii['source']})\n"
+        f"Bielik: {bielik['label']} ({bielik['score']:.3f})\n"
+        f"Qwen: {qwen['risk_level']} ({qwen['confidence']:.3f})\n"
+        f"Sentyment: {sentiment['sentiment']}, emocja: {sentiment['emotion']}\n"
+        f"Encje: {'; '.join(entity_parts) or 'brak'}\n"
+        f"Cele kontekstowe: {'; '.join(context_parts) or 'brak'}\n"
+        f"Podobne przypadki: {similar_line}\n"
+        f"Głosy: {', '.join(f'{name}={vote}' for name, vote in result['votes'].items())}\n"
+        f"Wykonane tools: {tools_line}\n"
+        f"Czas: {result['duration_seconds']:.2f}s"
+    )
+
+
+async def handle_moderate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        text = _parse_quoted_args(context.args, 1, '/moderate "tekst"')[0]
+        await update.message.reply_text("⏳ Uruchamiam lokalne modele moderacji...")
+        user = getattr(update, "effective_user", None)
+        message_id = getattr(update.message, "message_id", None) or int(asyncio.get_running_loop().time() * 1000)
+        result = await asyncio.to_thread(
+            moderation_provider.moderate,
+            text,
+            str(message_id),
+            str(getattr(user, "id", "unknown")),
+            getattr(user, "username", "") or "",
+            True,
+        )
+        await update.message.reply_text(_format_moderation_result(result))
+    except (ValueError, FileNotFoundError, ImportError, RuntimeError) as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_mod_policy_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        text = _parse_quoted_args(context.args, 1, '/mod_policy_check "tekst"')[0]
+        await update.message.reply_text("⏳ Sprawdzam politykę bez zapisywania decyzji...")
+        result = await asyncio.to_thread(
+            moderation_provider.moderate, text, "policy-check", "anonymous", "", False
+        )
+        await update.message.reply_text(_format_moderation_result(result, policy_check=True))
+    except (ValueError, FileNotFoundError, ImportError, RuntimeError) as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_mod_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        content_id = _parse_quoted_args(context.args, 1, "/mod_status <content_id>")[0]
+        row = await asyncio.to_thread(moderation_provider.repository.get_content, content_id)
+        if not row:
+            raise ValueError(f"Nie znaleziono content_id={content_id}.")
+        await update.message.reply_text(
+            f"📄 Status #{content_id}\nDecyzja: {row['action']}\n"
+            f"Override: {row['moderator_override'] or 'brak'}\n"
+            f"Powód: {row['reason']}\nUżytkownik: {row['user_id']}\nCzas: {row['timestamp']}"
+        )
+    except ValueError as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_mod_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        user_id = _parse_quoted_args(context.args, 1, "/mod_history <user_id>")[0]
+        row = await asyncio.to_thread(moderation_provider.get_user_moderation_history, user_id)
+        await update.message.reply_text(
+            f"👤 Historia użytkownika {user_id}\n"
+            f"Naruszenia: {row['violations_count']}\n"
+            f"Kategorie: {', '.join(row['categories']) or 'brak'}\n"
+            f"Risk score: {row['risk_score']:.2f}\n"
+            f"Repeat offender: {'tak' if row['is_repeat_offender'] else 'nie'}\n"
+            f"Shadow bany: {row['shadow_bans']}\n"
+            f"Ostatnie naruszenie: {row['last_violation'] or 'brak'}"
+        )
+    except ValueError as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_mod_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    analytics = await asyncio.to_thread(moderation_provider.repository.analytics)
+    total = analytics["total"]
+    actions = analytics["actions"]
+    percentages = analytics["percentages"]
+    top = "\n".join(f"- {name}: {count}" for name, count in analytics["top_violations"]) or "- brak"
+    repeat = "\n".join(
+        f"- {row['user_id']}: {row['total_violations']} naruszeń, "
+        f"shadow bany: {row['shadow_bans']}"
+        for row in analytics["repeat_offenders"]
+    ) or "- brak"
+    consensus = "\n".join(
+        f"- {name}: {count} ({count / total * 100.0 if total else 0.0:.1f}%)"
+        for name, count in sorted(analytics["consensus"].items())
+    ) or "- brak"
+    await _reply_long_text(update,
+        f"📊 MODERATION ANALYTICS ({analytics['period']})\n"
+        f"Łącznie: {total}\n"
+        f"Approved: {actions.get('APPROVE', 0)} ({percentages.get('APPROVE', 0.0):.1f}%)\n"
+        f"Rejected: {actions.get('REJECT', 0)} ({percentages.get('REJECT', 0.0):.1f}%)\n"
+        f"Review: {actions.get('FLAG_FOR_REVIEW', 0)} ({percentages.get('FLAG_FOR_REVIEW', 0.0):.1f}%)\n"
+        f"Human overrides: {analytics['human_overrides']}\n"
+        f"Shadow bany: {analytics['shadow_bans']}\n"
+        f"Średni czas: {analytics['average_seconds']:.3f}s\n\n"
+        f"TOP NARUSZENIA:\n{top}\n\n"
+        f"MODEL CONSENSUS:\n{consensus}\n\n"
+        f"REPEAT OFFENDERS:\n{repeat}"
+    )
+
+
+async def handle_mod_add_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        content_id, comment, action = _parse_quoted_args(
+            context.args, 3,
+            '/mod_add_feedback <content_id> "komentarz" "APPROVE|REJECT|FLAG_FOR_REVIEW"',
+        )
+        row = await asyncio.to_thread(moderation_provider.add_feedback, content_id, comment, action)
+        await update.message.reply_text(
+            f"✅ Zapisano feedback dla #{content_id}: "
+            f"{row['original_bot_decision']} → {row['moderator_override']}."
+        )
+    except ValueError as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_mod_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = await asyncio.to_thread(moderation_provider.repository.watchlist)
+    if not rows:
+        await update.message.reply_text("ℹ️ Watchlista jest pusta.")
+        return
+    lines = ["⚠️ WATCHLIST"]
+    for row in rows:
+        until = f", ban do {row['shadow_ban_until']}" if row["shadow_ban_until"] else ""
+        lines.append(f"- {row['user_id']}: {row['reason']}{until}")
+    await _reply_long_text(update, "\n".join(lines))
+
+
+async def handle_mod_train_on_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        await update.message.reply_text("⏳ Trenuję lokalny TF-IDF + LogisticRegression...")
+        result = await asyncio.to_thread(moderation_provider.train_on_feedback)
+        await update.message.reply_text(
+            f"✅ Model feedbacku gotowy. Próbki: {result['samples']}, "
+            f"klasy: {', '.join(result['classes'])}.\nModel: {_artifact_relative_path(result['model_path'])}"
+        )
+    except (ValueError, ImportError, OSError) as exc:
+        await update.message.reply_text(f"❌ {exc}")
+
+
+async def handle_mod_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🛡️ Lab6 — komendy moderacji\n"
+        '/moderate "tekst"\n/mod_policy_check "tekst"\n'
+        "/mod_status <content_id>\n/mod_history <user_id>\n"
+        "/mod_analytics\n/mod_watchlist\n"
+        '/mod_add_feedback <content_id> "komentarz" "APPROVE|REJECT|FLAG_FOR_REVIEW"\n'
+        "/mod_train_on_feedback\n/mod_help\n\n"
+        f"Dozwolone decyzje feedbacku: {', '.join(VALID_ACTIONS)}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Uruchomienie bota
 # ---------------------------------------------------------------------------
 
@@ -1008,7 +1223,7 @@ if __name__ == '__main__':
             "Brak zmiennej środowiskowej BOT_TOKEN. "
             "Ustaw ją przed uruchomieniem, np. `export BOT_TOKEN=...`."
         )
-    print("Uruchamianie bota NLP (Lab 2 + Lab 3 + Lab 4 + Lab 5)...")
+    print("Uruchamianie bota NLP (Lab 2 + Lab 3 + Lab 4 + Lab 5 + Lab 6)...")
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", send_welcome))
     app.add_handler(CommandHandler("help", send_welcome))
@@ -1026,6 +1241,15 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("translate", handle_translate))
     app.add_handler(CommandHandler("summarize", handle_summarize))
     app.add_handler(CommandHandler("agent", handle_agent))
+    app.add_handler(CommandHandler("moderate", handle_moderate))
+    app.add_handler(CommandHandler("mod_policy_check", handle_mod_policy_check))
+    app.add_handler(CommandHandler("mod_status", handle_mod_status))
+    app.add_handler(CommandHandler("mod_history", handle_mod_history))
+    app.add_handler(CommandHandler("mod_analytics", handle_mod_analytics))
+    app.add_handler(CommandHandler("mod_add_feedback", handle_mod_add_feedback))
+    app.add_handler(CommandHandler("mod_watchlist", handle_mod_watchlist))
+    app.add_handler(CommandHandler("mod_train_on_feedback", handle_mod_train_on_feedback))
+    app.add_handler(CommandHandler("mod_help", handle_mod_help))
     app.add_handler(MessageHandler(
         filters.PHOTO & filters.CaptionRegex(r"^/agent(?:@\w+)?(?:\s|$)"),
         handle_agent_photo,

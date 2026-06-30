@@ -1,4 +1,4 @@
-# NLP Bot — Laboratorium 2, 3 i 4
+# NLP Bot — Laboratorium 2–6
 
 ## 📁 Struktura projektu
 
@@ -757,3 +757,156 @@ Nieznane miasto — oczekiwany komunikat o braku miasta, bez awarii bota:
 ```
 /agent Jaka jest pogoda w mieście NieistniejąceMiastoXYZ?
 ```
+
+---
+
+## Lab6 testy
+
+Lab6 dodaje lokalną moderację treści opartą na Bielik Guard, Qwen3Guard oraz
+prawdziwym OpenAI Privacy Filter q4 uruchamianym lokalnie przez Transformers.js.
+Regex jest dodatkową warstwą dla polskich formatów danych, nie zamiennikiem modelu.
+Sentyment pochodzi z Lab3, a NER z Lab4. Decyzje, historia użytkowników, feedback
+i watchlista są zapisywane pod `program/lab6results/`. Bot nigdy nie pobiera
+modeli wewnątrz handlera.
+
+Najpierw zainstaluj zależności Python i Node, zaakceptuj warunki gated modelu
+Bielik na Hugging Face i jawnie pobierz checkpointy. Privacy Filter używa tylko
+wariantu q4 (~875 MB), dlatego nie należy pobierać całego repozytorium (~16 GB).
+Wymagany jest Node.js 18 lub nowszy.
+
+```bash
+python3 -m pip install -r program/requirements.txt
+npm install --prefix program
+hf auth login
+hf download speakleash/Bielik-Guard-0.1B-v1.0
+hf download Qwen/Qwen3Guard-Gen-0.6B
+hf download openai/privacy-filter --include config.json tokenizer.json tokenizer_config.json "onnx/model_q4.onnx" "onnx/model_q4.onnx_data"
+python3 -m spacy download pl_core_news_sm
+export BOT_TOKEN="token_bota"
+python3 program/main.py
+```
+
+Lista komend i dozwolonych decyzji feedbacku:
+
+```
+/mod_help
+```
+
+Policy check nie zapisuje wyniku. Negatywna, ale zgodna z polityką recenzja
+powinna otrzymać `APPROVE`:
+
+```
+/mod_policy_check "Kupiłem ten produkt i jestem rozczarowany"
+```
+
+Czysta pozytywna wiadomość — oczekiwane `APPROVE`. Odpowiedź zawiera dynamiczny
+`content_id`, potrzebny w kolejnych komendach:
+
+```
+/moderate "Uwielbiam ten produkt, najlepszy zakup!"
+```
+
+Dane osobowe — oczekiwane obowiązkowe `REJECT`, consensus `mandatory_pii`:
+
+```
+/moderate "Mój numer to +48 123 456 789, email to jan@example.com"
+```
+
+Treść toksyczna/self-harm — oczekiwane `REJECT`; wynik krytyczny dodatkowo
+dodaje użytkownika do watchlisty i ustawia shadow ban na 24 godziny:
+
+```
+/moderate "Jesteś głupszy niż cegła, powinieneś się zabić"
+```
+
+Opinia polityczna o niejednoznacznym ryzyku — oczekiwane
+`FLAG_FOR_REVIEW`, jeśli modele nie osiągną większości:
+
+```
+/moderate "Ci politykanci to wszystko złodzieje! Wszyscy!"
+```
+
+Spam — oczekiwane wykrycie kategorii `spam` i `REJECT`, nawet jeśli Qwen uzna
+sam tekst za bezpieczny:
+
+```
+/moderate "PROMOCJA! Kup teraz, kliknij tutaj: https://a.pl https://b.pl"
+```
+
+Status treści — zastąp `<CONTENT_ID>` numerem pokazanym przez `/moderate`:
+
+```
+/mod_status <CONTENT_ID>
+```
+
+Historia — zastąp `<TELEGRAM_USER_ID>` numerycznym identyfikatorem użytkownika:
+
+```
+/mod_history <TELEGRAM_USER_ID>
+```
+
+Raport i watchlista:
+
+```
+/mod_analytics
+```
+
+```
+/mod_watchlist
+```
+
+Trening bez minimum 6 wpisów feedbacku — oczekiwany czytelny błąd:
+
+```
+/mod_train_on_feedback
+```
+
+Dodaj co najmniej 6 korekt dotyczących istniejących, różnych `content_id` i co
+najmniej dwóch decyzji. Dla każdej komendy zastąp ID numerem zwróconym wcześniej
+przez `/moderate`:
+
+```
+/mod_add_feedback <CONTENT_ID_1> "To legalne zaproszenie" "APPROVE"
+/mod_add_feedback <CONTENT_ID_2> "Model przeoczył naruszenie" "REJECT"
+/mod_add_feedback <CONTENT_ID_3> "Decyzja poprawna" "APPROVE"
+/mod_add_feedback <CONTENT_ID_4> "Wymaga ręcznej oceny" "FLAG_FOR_REVIEW"
+/mod_add_feedback <CONTENT_ID_5> "To nie jest spam" "APPROVE"
+/mod_add_feedback <CONTENT_ID_6> "Treść narusza politykę" "REJECT"
+```
+
+Każdy `content_id` może mieć tylko jedną aktualną korektę. Ponowne dodanie
+feedbacku zastępuje poprzednią etykietę, aby model nie trenował na sprzecznych
+danych. Po zebraniu danych wytrenuj lokalny TF-IDF + LogisticRegression. Oczekiwany plik
+`program/lab6results/feedback_model.joblib`; od tej chwili model głosuje w
+ensemble wyłącznie przy confidence co najmniej 0.7:
+
+```
+/mod_train_on_feedback
+```
+
+Brak tekstu i nieznane ID — oczekiwane błędy bez awarii bota:
+
+```
+/moderate
+```
+
+```
+/mod_status 999999999
+```
+
+Automatyczne testy bez pobierania modeli:
+
+```bash
+python3 -m unittest discover -s program/tests -v
+```
+
+Pełny test integracyjny używający trzech prawdziwych lokalnych checkpointów.
+Sprawdza approve, legalny negatywny tekst, toxic/self-harm, political review,
+spam i PII. Pierwsze uruchomienie ładuje modele i zwykle trwa kilkanaście sekund:
+
+```bash
+RUN_LAB6_INTEGRATION=1 python3 -m unittest program/tests/test_lab6_integration.py -v
+```
+
+Awaryjny regex-only można włączyć wyłącznie jawnie przez
+`LAB6_ALLOW_PII_FALLBACK=true`; nie jest to tryb zalecany do demonstracji Lab6.

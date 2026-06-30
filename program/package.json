@@ -1,0 +1,8 @@
+{
+  "name": "wsei-nlp-lab6-local-models",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@huggingface/transformers": "4.2.0"
+  }
+}
